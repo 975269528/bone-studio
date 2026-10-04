@@ -21,11 +21,12 @@ it('非法批次即使已有合法编辑，也不会污染输入项目', () => {
   expect(() => executeCommand({ project, command: { type: 'bone.update', boneId: 'root', changes: { parentId: 'missing' } } })).toThrow('不存在');
 });
 
-it('同批修改 IK 骨长和下骨连接点，仅校验最终状态', () => {
+it('修改 IK 骨长自动保持下骨连接，同批修改仍只校验最终状态', () => {
   const project = makeTestProject();
   project.ikConstraints = [{ id: 'ik', name: 'IK', rootBoneId: 'root', tipBoneId: 'tip',
     targetX: 100, targetY: 80, bendDirection: 1, enabled: true, targetKeys: [] }];
-  expect(() => executeCommand({ project, command: { type: 'bone.update', boneId: 'root', changes: { length: 100 } } })).toThrow('相接');
+  const resized = executeCommand({ project, command: { type: 'bone.update', boneId: 'root', changes: { length: 100 } } });
+  expect(resized.bones[1].x).toBe(100);
   const updated = executeCommands({ project, commands: [
     { type: 'bone.update', boneId: 'root', changes: { length: 100 } },
     { type: 'bone.update', boneId: 'tip', changes: { x: 100 } },
@@ -35,7 +36,7 @@ it('同批修改 IK 骨长和下骨连接点，仅校验最终状态', () => {
   expect(project.bones[0].length).toBe(80);
 });
 
-it('删除骨骼级联清理子骨、部件、关键帧和 IK', () => {
+it('删除骨骼级联清理子骨、关键帧和 IK，保留脱绑部件和素材', () => {
   const project = makeTestProject();
   project.assets = [{ id: 'image', name: '图', width: 1, height: 1, dataUrl: 'data:image/png;base64,AA==' }];
   project.attachments = [{ id: 'part', name: '手', assetId: 'image', boneId: 'tip', x: 0, y: 0,
@@ -45,7 +46,8 @@ it('删除骨骼级联清理子骨、部件、关键帧和 IK', () => {
     targetY: 20, bendDirection: 1, enabled: true, targetKeys: [] }];
   const updated = executeCommand({ project, command: { type: 'bone.remove', boneId: 'root' } });
   expect(updated.bones).toEqual([]);
-  expect(updated.attachments).toEqual([]);
+  expect(updated.attachments).toHaveLength(1);
+  expect(updated.attachments[0].boneId).toBeNull();
   expect(updated.animations[0].tracks).toEqual([]);
   expect(updated.ikConstraints).toEqual([]);
   expect(updated.assets).toHaveLength(1);

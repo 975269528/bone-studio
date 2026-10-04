@@ -1,4 +1,7 @@
 import type { Project, ProjectCommand } from './types';
+import { removeBone } from './remove-bone';
+import { scaleProject } from './scale-project';
+import { updateBone } from './update-bone';
 
 function requireItem<T extends { id: string }>(items: T[], id: string): T {
   const item = items.find((candidate) => candidate.id === id);
@@ -6,29 +9,11 @@ function requireItem<T extends { id: string }>(items: T[], id: string): T {
   return item;
 }
 
-function removeBone(project: Project, id: string): void {
-  requireItem(project.bones, id);
-  const removed = new Set([id]);
-  let previousSize = 0;
-  while (previousSize !== removed.size) {
-    previousSize = removed.size;
-    project.bones.forEach((bone) => {
-      if (bone.parentId && removed.has(bone.parentId)) removed.add(bone.id);
-    });
-  }
-  project.bones = project.bones.filter((bone) => !removed.has(bone.id));
-  project.attachments = project.attachments.filter((item) => !item.boneId || !removed.has(item.boneId));
-  project.animations.forEach((animation) => {
-    animation.tracks = animation.tracks.filter((track) => !removed.has(track.boneId));
-  });
-  project.ikConstraints = project.ikConstraints.filter((item) => !removed.has(item.rootBoneId) && !removed.has(item.tipBoneId));
-}
-
 function mutateBone(project: Project, command: ProjectCommand): boolean {
   switch (command.type) {
     case 'bone.add': project.bones.push(command.bone); return true;
-    case 'bone.update': Object.assign(requireItem(project.bones, command.boneId), command.changes); return true;
-    case 'bone.remove': removeBone(project, command.boneId); return true;
+    case 'bone.update': updateBone(project, command); return true;
+    case 'bone.remove': removeBone(project, command); return true;
     case 'attachment.add': project.attachments.push(command.attachment); return true;
     case 'attachment.update': Object.assign(requireItem(project.attachments, command.attachmentId), command.changes); return true;
     case 'attachment.remove':
@@ -97,7 +82,9 @@ function mutateIK(project: Project, command: ProjectCommand): boolean {
 /** 仅用于已校验命令在隔离事务副本上的应用；调用者负责最终项目校验。 */
 export function applyMutation(project: Project, command: ProjectCommand): void {
   if (command.type === 'project.update') { Object.assign(project, command.changes); return; }
+  if (command.type === 'project.scale') { scaleProject(project, command); return; }
   if (command.type === 'asset.add') { project.assets.push(command.asset); return; }
+  if (command.type === 'asset.update') { Object.assign(requireItem(project.assets, command.assetId), command.changes); return; }
   if (mutateBone(project, command) || mutateAnimation(project, command) || mutateIK(project, command)) return;
   throw new Error('无法识别编辑命令');
 }

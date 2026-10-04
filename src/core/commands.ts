@@ -1,17 +1,21 @@
 import { z } from 'zod';
 import type { ExecuteCommandOptions, ExecuteCommandsOptions, ProjectCommand } from './types';
 import { animationSchema, assetSchema, attachmentSchema, boneKeyframeSchema,
-  boneSchema, idSchema, ikSchema, interpolationSchema, projectChangesSchema,
+  boneSchema, coordinateSchema, idSchema, ikSchema, interpolationSchema, projectChangesSchema,
   targetKeyframeSchema, timeSchema } from './schema';
 import { parseProject } from './validation';
 import { applyMutation } from './mutations';
 
 export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('project.update'), changes: projectChangesSchema }).strict(),
+  z.object({ type: z.literal('project.scale'), factor: z.number().finite().min(0.1).max(10),
+    pivotX: coordinateSchema.optional(), pivotY: coordinateSchema.optional() }).strict(),
   z.object({ type: z.literal('asset.add'), asset: assetSchema }).strict(),
+  z.object({ type: z.literal('asset.update'), assetId: idSchema, changes: assetSchema.pick({ name: true }).partial().strict() }).strict(),
   z.object({ type: z.literal('bone.add'), bone: boneSchema }).strict(),
   z.object({ type: z.literal('bone.update'), boneId: idSchema, changes: boneSchema.omit({ id: true }).partial().strict() }).strict(),
-  z.object({ type: z.literal('bone.remove'), boneId: idSchema }).strict(),
+  z.object({ type: z.literal('bone.remove'), boneId: idSchema,
+    animationId: idSchema.nullable().optional(), time: timeSchema.optional() }).strict(),
   z.object({ type: z.literal('attachment.add'), attachment: attachmentSchema }).strict(),
   z.object({ type: z.literal('attachment.update'), attachmentId: idSchema, changes: attachmentSchema.omit({ id: true }).partial().strict() }).strict(),
   z.object({ type: z.literal('attachment.remove'), attachmentId: idSchema }).strict(),

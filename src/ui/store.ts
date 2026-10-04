@@ -3,6 +3,7 @@ import { createDemoProject, executeCommands, parseProject } from '@/core/api';
 import type { Project, ProjectCommand } from '@/core/types';
 
 export type Selection = { kind: 'bone' | 'attachment' | 'ik' | 'asset'; id: string } | null;
+export type CanvasTool = 'select' | 'draw' | 'rotate' | 'scale' | 'length' | 'pan';
 export interface EditorState {
   project: Project;
   revision: number;
@@ -12,9 +13,12 @@ export interface EditorState {
   isPlaying: boolean;
   showBones: boolean;
   zoom: number;
+  pan: { x: number; y: number };
+  tool: CanvasTool;
   past: Project[];
   future: Project[];
   message: string;
+  messageVersion: number;
   isDirty: boolean;
   isSaving: boolean;
 }
@@ -23,7 +27,7 @@ const initialProject = createDemoProject();
 let state: EditorState = {
   project: initialProject, revision: 0, selection: null,
   animationId: initialProject.animations[0]?.id ?? null, time: 0, isPlaying: false,
-  showBones: true, zoom: 0.85, past: [], future: [], message: '', isDirty: false, isSaving: false,
+  showBones: true, zoom: 0.85, pan: { x: 0, y: 0 }, tool: 'select', past: [], future: [], message: '', messageVersion: 0, isDirty: false, isSaving: false,
 };
 const listeners = new Set<() => void>();
 const HISTORY_LIMIT = 80;
@@ -41,7 +45,7 @@ export function useEditor(): EditorState {
 
 /** Update transient editor state without adding document undo entries. */
 export function updateEditor(changes: Partial<EditorState>): void {
-  state = { ...state, ...changes };
+  state = { ...state, ...changes, messageVersion: changes.message ? state.messageVersion + 1 : state.messageVersion };
   listeners.forEach(listener => listener());
 }
 
@@ -91,7 +95,7 @@ export function redo(): void {
 function validEditorReferences(project: Project): Pick<EditorState, 'selection' | 'animationId' | 'time'> {
   const lists = { bone: project.bones, attachment: project.attachments, ik: project.ikConstraints, asset: project.assets };
   const selection = state.selection && lists[state.selection.kind].some(item => item.id === state.selection?.id) ? state.selection : null;
-  const animationId = project.animations.some(item => item.id === state.animationId) ? state.animationId : project.animations[0]?.id ?? null;
+  const animationId = state.animationId === null ? null : project.animations.some(item => item.id === state.animationId) ? state.animationId : project.animations[0]?.id ?? null;
   const duration = project.animations.find(item => item.id === animationId)?.duration ?? 0;
   return { selection, animationId, time: Math.min(state.time, duration) };
 }

@@ -92,7 +92,7 @@ function AnimationSettings() {
   const selectedIK = state.project.ikConstraints.find(constraint => constraint.id === state.selection?.id);
   const keyframe = selectedTrack?.keyframes.find(key => Math.abs(key.time - state.time) < 0.001);
   const targetKey = selectedIK?.targetKeys.find(key => Math.abs(key.time - state.time) < 0.001);
-  return <div className="animation-settings"><TextField label="动作名称" value={animation.name} onChange={name => update({ name })} />
+  return <div className="animation-settings"><TextField key={animation.id} label="动作名称" value={animation.name} onChange={name => update({ name })} />
     <div className="property-grid"><NumberField label="时长 / 秒" min={0.1} max={120} step={0.1} value={animation.duration} onChange={duration => update({ duration })} />
       <NumberField label="帧率 / FPS" min={1} max={120} step={1} value={animation.fps} onChange={fps => update({ fps })} /></div>
     {selectedTrack && <label className="field full"><span>插值</span><select value={selectedTrack.interpolation} onChange={event => update({ tracks: animation.tracks.map(track => track === selectedTrack ? { ...track, interpolation: event.target.value as 'linear' | 'smooth' | 'step' } : track) })}>

@@ -1,4 +1,5 @@
-import { SlidersHorizontal, Link2, Crosshair, Bone as BoneIcon, Image } from 'lucide-react';
+import { useState } from 'react';
+import { SlidersHorizontal, Link2, Crosshair, Bone as BoneIcon, Image, Pencil } from 'lucide-react';
 import type { Attachment, Bone, IKConstraint, Project } from '@/core/types';
 import { DeleteButton, NumberField, TextField } from './controls';
 import { runCommand, useEditor } from './store';
@@ -21,7 +22,7 @@ function BoneProperties(props: { bone: Bone; project: Project }) {
       <NumberField label="X 位置" disabled={!!rules.positionConstraint} value={bone.x} onChange={x => update({ x })} /><NumberField label="Y 位置" disabled={!!rules.positionConstraint} value={bone.y} onChange={y => update({ y })} />
       <NumberField label="旋转 °" disabled={!!rules.rotationConstraint} value={bone.rotation} onChange={rotation => update({ rotation })} /><NumberField label="长度 px" min={1} value={bone.length} onChange={length => update({ length })} />
     </div><p className="field-help">{rules.help}</p>
-    <DeleteButton label="删除骨骼" detail="这会删除整个子骨骼树、绑定图片部件、关联 IK 约束和骨骼动画轨道。素材会保留；删除可以撤销。" command={{ type: 'bone.remove', boneId: bone.id }} /></>;
+    <DeleteButton label="删除骨骼" detail="删除此骨骼及其子骨骼、关联 IK 和骨骼动画轨道。图片部件会保留，并按当前画面位置解除绑定；删除可以撤销。" command={{ type: 'bone.remove', boneId: bone.id, animationId: state.animationId, time: state.time }} /></>;
 }
 
 function AttachmentProperties(props: { attachment: Attachment; project: Project }) {
@@ -69,8 +70,17 @@ function ProjectProperties(props: { project: Project }) {
   return <><div className="object-kind"><SlidersHorizontal size={16} />项目 / DOCUMENT</div><TextField label="项目名称" value={project.name} onChange={name => runCommand({ type: 'project.update', changes: { name } })} />
     <Section title="输出画布" /><div className="property-grid"><NumberField label="宽度 px" value={project.width} min={16} max={4096} onChange={width => runCommand({ type: 'project.update', changes: { width } })} />
       <NumberField label="高度 px" value={project.height} min={16} max={4096} onChange={height => runCommand({ type: 'project.update', changes: { height } })} /></div>
-    <div className="info-card"><strong>让静态角色动起来</strong><p>① 导入已拆分图片部件<br />② 添加骨骼，绑定部件<br />③ 设置 IK 或记录关键帧<br />④ 预览并导出动作</p></div>
+    <ProjectScale /><div className="info-card"><strong>让静态角色动起来</strong><p>① 导入已拆分图片部件<br />② 绘制骨骼，绑定部件<br />③ 设置 IK 或记录关键帧<br />④ 预览并导出动作</p></div>
     <Section title="文档统计" /><dl className="document-stats"><dt>图片素材</dt><dd>{project.assets.length}</dd><dt>骨骼</dt><dd>{project.bones.length}</dd><dt>动作</dt><dd>{project.animations.length}</dd><dt>IK 约束</dt><dd>{project.ikConstraints.length}</dd></dl></>;
+}
+
+function ProjectScale() {
+  const [factor, setFactor] = useState('1');
+  const value = Number(factor); const isValid = Number.isFinite(value) && value >= 0.1 && value <= 10;
+  return <><Section title="整体角色缩放" /><label className="field full"><span>缩放倍率（1 为原尺寸）</span>
+    <input aria-label="整体角色缩放倍率" type="number" min="0.1" max="10" step="0.1" value={factor} onChange={event => setFactor(event.target.value)} /></label>
+    <button className="full-button" disabled={!isValid || value === 1} onClick={() => { runCommand({ type: 'project.scale', factor: value }); setFactor('1'); }}>应用整体缩放</button>
+    <p className="field-help">以画布中心等比缩放所有骨骼、图片和动画轨迹。画布尺寸不变，可撤销。</p></>;
 }
 
 /** Display editable properties for the selected document object. */
@@ -80,8 +90,8 @@ export function Inspector() {
   const attachment = selection?.kind === 'attachment' ? project.attachments.find(item => item.id === selection.id) : undefined;
   const constraint = selection?.kind === 'ik' ? project.ikConstraints.find(item => item.id === selection.id) : undefined;
   const asset = selection?.kind === 'asset' ? project.assets.find(item => item.id === selection.id) : undefined;
-  return <aside className="inspector panel"><div className="panel-title"><SlidersHorizontal size={15} /><span>属性</span><span className="tiny-label">INSPECTOR</span></div><div className="property-content">
+  return <aside className="inspector panel"><div className="panel-title"><SlidersHorizontal size={15} /><span>属性</span><button className="icon-button rename-button" aria-label="重命名所选对象" title="重命名所选对象" onClick={() => { const input = document.querySelector<HTMLInputElement>('.property-content [data-name-field]'); input?.focus(); input?.select(); }}><Pencil size={13} /></button><span className="tiny-label">INSPECTOR</span></div><div className="property-content" key={selection ? `${selection.kind}:${selection.id}` : 'project'}>
     {bone ? <BoneProperties bone={bone} project={project} /> : attachment ? <AttachmentProperties attachment={attachment} project={project} /> : constraint ? <IKProperties constraint={constraint} project={project} /> :
-      asset ? <><div className="object-kind"><Image size={16} />素材 / ASSET</div><img className="asset-preview checker" src={asset.dataUrl} alt={asset.name} /><h3>{asset.name}</h3><p className="muted">{asset.width} × {asset.height} px</p><p className="field-help">在素材卡片上点击 +，添加到画布并绑定当前选中的骨骼。</p></> : <ProjectProperties project={project} />}
+      asset ? <><div className="object-kind"><Image size={16} />素材 / ASSET</div><TextField label="素材名称" value={asset.name} onChange={name => runCommand({ type: 'asset.update', assetId: asset.id, changes: { name } })} /><img className="asset-preview checker" src={asset.dataUrl} alt={asset.name} /><p className="muted">{asset.width} × {asset.height} px</p><p className="field-help">在素材卡片上点击 +，添加到画布并绑定当前选中的骨骼。</p></> : <ProjectProperties project={project} />}
   </div></aside>;
 }

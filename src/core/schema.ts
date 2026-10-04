@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const idSchema = z.string().min(1).max(128);
 const nameSchema = z.string().min(1).max(200);
-const coordinateSchema = z.number().finite().min(-1_000_000).max(1_000_000);
+export const coordinateSchema = z.number().finite().min(-1_000_000).max(1_000_000);
 const angleSchema = z.number().finite().min(-360_000).max(360_000);
 export const timeSchema = z.number().finite().min(0).max(600);
 export const interpolationSchema = z.enum(['linear', 'smooth', 'step']);

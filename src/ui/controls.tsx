@@ -13,16 +13,28 @@ export function NumberField(props: FieldProps) {
     onFocus={() => updateEditor({ isPlaying: false })}
     onBlur={event => {
       const value = Number(event.target.value);
-      if (event.target.validity.valid && Number.isFinite(value)) props.onChange(value);
+      if (event.target.value.trim() && event.target.validity.valid && Number.isFinite(value)) { if (value !== Number(props.value.toFixed(3))) props.onChange(value); }
       else event.target.value = String(props.value);
     }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} /></label>;
 }
 
 /** Named text property control that commits only nonempty values. */
 export function TextField(props: { label: string; value: string; onChange: (value: string) => void }) {
-  return <label className="field full"><span>{props.label}</span><input key={props.value} defaultValue={props.value}
-    onBlur={event => { const value = event.target.value.trim(); if (value) props.onChange(value); else event.target.value = props.value; }}
-    onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} /></label>;
+  const [draft, setDraft] = useState(props.value);
+  const isComposing = useRef(false);
+  useEffect(() => { setDraft(props.value); }, [props.value]);
+  const handleCommit = () => {
+    const name = draft.trim();
+    if (name && name !== props.value) props.onChange(name);
+    setDraft(name || props.value);
+  };
+  return <label className="field full"><span>{props.label}<small>回车或离开输入框保存</small></span><input value={draft}
+    data-name-field onFocus={() => updateEditor({ isPlaying: false })} onChange={event => setDraft(event.target.value)}
+    onCompositionStart={() => { isComposing.current = true; }} onCompositionEnd={() => { isComposing.current = false; }}
+    onBlur={handleCommit} onKeyDown={event => {
+      if (event.key === 'Enter' && !isComposing.current && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) event.currentTarget.blur();
+      if (event.key === 'Escape') { setDraft(props.value); event.stopPropagation(); }
+    }} /></label>;
 }
 
 /** Accessible modal with Escape dismissal and focus restored to its trigger. */

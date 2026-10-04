@@ -7,9 +7,9 @@ describe('项目文件完整性校验', () => {
   it('生成的示例包含透明分件、动画与特定动作的 IK', () => {
     const project = createDemoProject();
     expect(validateProject(project)).toEqual({ valid: true, errors: [] });
-    expect(project.assets).toHaveLength(8);
+    expect(project.assets).toHaveLength(15);
     expect(project.ikConstraints[0].animationId).toBe('animation-wave');
-    expect(project.attachments.length).toBeGreaterThan(project.assets.length);
+    expect(project.attachments).toHaveLength(project.assets.length);
   });
 
   it('拒绝对象 ID 重复、缺失素材与关键帧超出时长', () => {

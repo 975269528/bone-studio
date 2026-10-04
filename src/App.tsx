@@ -14,6 +14,11 @@ import './ui/desktop';
 export function App() {
   const state = useEditor();
   useEffect(() => {
+    if (!state.message) return;
+    const timeout = window.setTimeout(() => updateEditor({ message: '' }), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [state.message, state.messageVersion]);
+  useEffect(() => {
     document.addEventListener('keydown', handleShortcut);
     const unsubscribe = window.boneStudio?.onAutomationRequest(request => {
       void handleAutomation(request).then(result => window.boneStudio?.replyAutomation({ id: request.id, result }))

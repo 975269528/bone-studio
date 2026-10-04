@@ -170,3 +170,25 @@ kbd { font: inherit; color: #977559; border: 1px solid #67503d; border-radius: 3
 ::-webkit-scrollbar-track { background: #181e28; }
 @media (max-width: 1150px) { .workspace { grid-template-columns: 210px minmax(250px,1fr) 230px; } .animation-settings { width: 230px; } .brand small, .bridge-status, .breadcrumb { display: none; } .brand { font-size: 14px; } .app-header { padding: 0 12px; gap: 12px; } .tool { padding: 5px; font-size: 9px; } .canvas-toolbar { padding: 0 7px; } .header-actions { gap: 5px; } }
 @media (max-height: 780px) { .timeline { height: 205px; } .app-header { height: 63px; } }
+.canvas-area { overflow: hidden; display: block; }
+.canvas-paper { position: absolute; left: 50%; top: 50%; }
+.canvas-meta { pointer-events: none; z-index: 2; padding: 4px 7px; background: #10141cd9; border-radius: 4px; left: 12px; top: 12px; }
+.canvas-guides { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.draw-preview { stroke: #ffbf75; stroke-width: 3; fill: #ffbf75; }
+.draw-preview line { stroke-dasharray: 8 5; }
+.length-handle { fill: #182431; stroke: #ffbf75; stroke-width: 2; }
+.part-anchor { fill: #182431; stroke: #ffbf75; stroke-width: 2; }
+.tool-draw canvas, .tool-length canvas { cursor: crosshair; }
+.tool-pan, .tool-pan canvas { cursor: grab; }
+.tool-pan:active, .tool-pan canvas:active { cursor: grabbing; }
+.tool-rotate canvas, .tool-scale canvas { cursor: crosshair; }
+.canvas-help { min-height: 34px; flex-shrink: 0; display: flex; align-items: center; gap: 7px; padding: 7px 10px; border-top: 1px solid #29313d; color: #8a9eb7; background: #171c25; font-size: 10px; }
+.canvas-help span { flex: 1; line-height: 1.5; }
+.canvas-help label { display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 9px; }
+.field span small { color: #65758a; margin-left: auto; font-size: 8px; }
+.full-button { width: 100%; font-size: 10px; }
+.rename-button { margin-left: 3px; color: #ac967f; }
+.toast { top: 78px; bottom: auto; max-width: min(640px, 80vw); }
+.project-title strong { max-width: 220px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+@media (max-width: 1150px) { .canvas-toolbar .toolbar-group { gap: 3px; } .canvas-toolbar select { max-width: 100px; } .canvas-toolbar .tool span { display: none; } .canvas-help { font-size: 9px; } .project-title strong { max-width: 170px; } }
+@media (max-height: 780px) { .toast { top: 69px; } }

@@ -1,4 +1,4 @@
-import { createEmptyProject } from '@/core/api';
+import { createDemoProject, createEmptyProject } from '@/core/api';
 import { downloadFile } from './files';
 import { getEditorState, replaceProject, reportError, updateEditor } from './store';
 
@@ -24,3 +24,6 @@ export async function openDesktopProject(): Promise<void> {
 
 /** Start a new empty document after the caller has handled unsaved changes. */
 export function newProject(): void { replaceProject(createEmptyProject()); }
+
+/** Load the built-in character after the caller has handled unsaved changes. */
+export function loadDemoProject(): void { replaceProject(createDemoProject()); }

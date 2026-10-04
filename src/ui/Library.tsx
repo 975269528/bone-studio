@@ -1,10 +1,16 @@
 import { useRef, useState } from 'react';
-import { Bone, Image, Plus, ChevronRight, Crosshair, Layers, Crop, Upload } from 'lucide-react';
+import { Bone, Image, Plus, ChevronRight, Crosshair, Layers, Crop, Upload, Pencil } from 'lucide-react';
 import type { Asset, Bone as BoneModel, Project } from '@/core/types';
 import { AddObject } from './AddObject';
 import { AssetCrop } from './AssetCrop';
 import { readImage } from './files';
 import { applyCommands, getEditorState, reportError, updateEditor, useEditor } from './store';
+import type { Selection } from './store';
+
+function handleRename(selection: Selection): void {
+  updateEditor({ selection });
+  requestAnimationFrame(() => { const input = document.querySelector<HTMLInputElement>('.property-content [data-name-field]'); input?.focus(); input?.select(); });
+}
 
 function boneDepth(project: Project, id: string): number {
   const bone = project.bones.find(item => item.id === id); if (!bone?.parentId) return 0;
@@ -32,7 +38,7 @@ function BoneTree() {
   const state = useEditor();
   return <div className="tree-list">{orderedBones(state.project).map(bone => <div key={bone.id}>
     <button className={`tree-row ${state.selection?.id === bone.id ? 'selected' : ''}`} style={{ paddingLeft: 12 + boneDepth(state.project, bone.id) * 13 }}
-      onClick={() => updateEditor({ selection: { kind: 'bone', id: bone.id } })}><ChevronRight size={11} className="muted" /><Bone size={14} /><span>{bone.name}</span></button>
+      title="双击重命名" onDoubleClick={() => handleRename({ kind: 'bone', id: bone.id })} onClick={() => updateEditor({ selection: { kind: 'bone', id: bone.id } })}><ChevronRight size={11} className="muted" /><Bone size={14} /><span>{bone.name}</span></button>
     {state.project.attachments.filter(attachment => attachment.boneId === bone.id).map(attachment => <button key={attachment.id} className={`tree-row attachment-row ${state.selection?.id === attachment.id ? 'selected' : ''}`}
       style={{ paddingLeft: 37 + boneDepth(state.project, bone.id) * 13 }} onClick={() => updateEditor({ selection: { kind: 'attachment', id: attachment.id } })}><Image size={12} /><span>{attachment.name}</span></button>)}
   </div>)}{state.project.attachments.filter(attachment => !attachment.boneId).map(attachment => <button key={attachment.id} className={`tree-row ${state.selection?.id === attachment.id ? 'selected' : ''}`} onClick={() => updateEditor({ selection: { kind: 'attachment', id: attachment.id } })}><Image size={14} /><span>{attachment.name}</span></button>)}
@@ -45,7 +51,7 @@ function AssetGrid(props: { onCrop: (asset: Asset) => void }) {
   return <div className="asset-grid">{state.project.assets.map(asset => <article className={`asset-card ${state.selection?.id === asset.id ? 'selected' : ''}`} key={asset.id}>
     <button className="asset-thumb checker" onClick={() => updateEditor({ selection: { kind: 'asset', id: asset.id } })}><img src={asset.dataUrl} alt={asset.name} loading="lazy" /></button>
     <div className="asset-card-caption"><span title={asset.name}>{asset.name}</span><small>{asset.width} × {asset.height}</small></div>
-    <div className="asset-actions"><button aria-label={`拆分 ${asset.name}`} onClick={() => props.onCrop(asset)}><Crop size={12} />拆分</button><button aria-label={`添加 ${asset.name} 到画布`} onClick={() => addAttachment(asset)}><Plus size={13} /></button></div>
+    <div className="asset-actions"><button aria-label={`拆分 ${asset.name}`} onClick={() => props.onCrop(asset)}><Crop size={12} />拆分</button><button aria-label={`重命名素材 ${asset.name}`} title="重命名素材" onClick={() => handleRename({ kind: 'asset', id: asset.id })}><Pencil size={12} /></button><button aria-label={`添加 ${asset.name} 到画布`} onClick={() => addAttachment(asset)}><Plus size={13} /></button></div>
   </article>)}{!state.project.assets.length && <p className="empty-copy">导入 PNG、WebP 或 JPEG 图片，可裁切拆分成独立部件。</p>}</div>;
 }
 

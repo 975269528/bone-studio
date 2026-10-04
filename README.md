@@ -26,10 +26,14 @@ Windows 可在构建后双击 `start-bone-studio.cmd`，启动器使用自身所
 
 ## 使用流程
 
-1. 导入 PNG / WebP / JPEG 部件；透明拆图推荐 PNG。建立骨骼后，选择附件和骨骼完成绑定，再调整位置、锚点、缩放与层级。
-2. 选择动画，在时间轴切换时间，编辑骨骼姿态并写入关键帧；播放查看实时预览。IK 使用直接相连的根骨与末端骨，目标可写入动画关键帧。IK 第二段的位置受连接保护，请拖动 IK 目标调整姿态；禁用 IK 后可编辑旋转，如需独立移动第二段须先移除关联约束。
-3. 保存项目为 JSON。图片像素嵌入项目，重新打开项目无需原图路径。
-4. 导出 PNG 序列 ZIP，或包含 PNG spritesheet 与帧数据 JSON 的 ZIP。
+1. 默认示例是一名紫头巾小厨师，使用 15 个透明 SVG 分件。紫头巾、白衣、紫围裙与棕鞋沿用参考人物的风格，约 2.35 头身，轻微朝左的 3/4 侧身，近远侧手脚非镜像；后续默认人物继续沿用这一侧身视角。躯干与左右髋从腰部同一骨盆中心分叉，两条腿链首尾相连；挥手只驱动近侧手臂，身体与双脚固定。新角色可导入 PNG / WebP / JPEG 部件；透明拆图推荐 PNG。选择部件，在属性中完成骨骼绑定，调整锚点、透明度与层级。
+2. 选择“绘制骨骼”工具，在基础姿态中拖出骨骼。已选骨骼作为父骨，空白选择创建根骨；勾选“保持父骨骼”可连续绘制同级分支，取消后新骨成为下一段的父骨。Esc 取消本次绘制。“骨骼长度”工具拖圆形尖端调整基础骨长，自动保持既有末端和 IK 连接。
+3. “选择 / 移动”工具可拖动图片或骨骼关节，骨骼尖端控制旋转。“旋转图片”和“缩放图片”工具从图片边缘拖动，围绕锚点旋转或等比缩放。点击空白清除选择，在项目属性的“整体角色缩放”输入 0.1–10 倍率并应用，同时缩放整套骨架、图片和动作。
+4. 项目、骨骼、图片部件、IK 和素材均可在右侧属性命名，回车或离开输入框提交；素材卡片的铅笔和骨骼树双击可快速进入命名。动作名称在时间轴右侧修改。删除骨骼会保留图片并解除对应绑定，保持当前显示姿态；撤销可恢复骨骼与绑定。
+5. 选择动画，在时间轴切换时间，编辑骨骼姿态并写入关键帧；K 录帧，空格播放或暂停。IK 使用直接相连的根骨与末端骨，目标可写入动画关键帧。IK 第二段的位置受连接保护，请拖动 IK 目标调整姿态；禁用 IK 后可编辑旋转，如需独立移动第二段须先移除关联约束。
+6. 保存项目为 JSON，或导出 PNG 序列 ZIP / spritesheet ZIP。图片像素嵌入项目，重新打开项目无需原图路径。Ctrl+S 保存，Ctrl+Z 撤销，Ctrl+Y 或 Ctrl+Shift+Z 重做；macOS 使用 Command。
+
+中键拖动或“平移视图”工具只移动观察视图，滚轮以指针位置为中心缩放；“适应窗口”重置平移并调整视图倍率。工具栏可切换“骨骼”叠加和“纯画面”，查看实际角色构图。操作提示在顶部中间显示并自动消失。
 
 两种 ZIP 都包含 `animation.json`。采样时间为 `frame / fps`，覆盖 `[0, duration)`；帧数为 `ceil(duration * fps)`，不重复尾帧。导出先检查资源预算：最多 2400 帧，单帧最多 16,777,216 像素，总帧像素最多 268,435,456；精灵图每边最多 8192，最多 33,554,432 像素，帧间保留 2 像素透明间距。超限会明确失败，可降低画布尺寸、帧率或动画长度。
 
@@ -77,9 +81,12 @@ Windows 可在构建后双击 `start-bone-studio.cmd`，启动器使用自身所
 | `type` | 必需字段（除 type） | 可选字段 |
 | --- | --- | --- |
 | `project.update` | `changes`：name / width / height 的部分对象 | — |
+| `project.scale` | `factor`：0.1–10 的等比倍率 | `pivotX,pivotY`，未传坐标轴默认使用对应画布中心 |
 | `asset.add` | `asset`：id,name,dataUrl,width,height | — |
+| `asset.update` | `assetId,changes`：name 的部分对象 | — |
 | `bone.add` | `bone`：id,name,parentId,x,y,rotation,length | — |
-| `bone.update` / `bone.remove` | `boneId`；update 还需 `changes` | changes 为除 id 外的骨骼字段 |
+| `bone.update` | `boneId,changes`：除 id 外的骨骼字段 | — |
+| `bone.remove` | `boneId` | `animationId`：现有动作 ID 或 null；`time`：0–600 秒，默认 0 |
 | `attachment.add` | `attachment`：id,name,assetId,boneId,x,y,rotation,scaleX,scaleY,anchorX,anchorY,opacity,zIndex | — |
 | `attachment.update` / `attachment.remove` | `attachmentId`；update 还需 `changes` | changes 为除 id 外的附件字段 |
 | `animation.add` | `animation`：id,name,duration,fps,loop,tracks | — |
@@ -91,7 +98,13 @@ Windows 可在构建后双击 `start-bone-studio.cmd`，启动器使用自身所
 | `ik.keyframe.set` | `constraintId,keyframe:{time,x,y}` | — |
 | `ik.keyframe.remove` | `constraintId,time` | — |
 
-rotation 使用角度。bone.parentId 与 attachment.boneId 可为 null；scaleX/scaleY 为倍率；anchorX/anchorY 为 0–1；opacity 为 0–1；bendDirection 为 1 或 -1。动画 tracks 为 `{boneId,keyframes,interpolation}` 数组，IK targetKeys 为 `{time,x,y}` 数组。批量指令最终状态统一校验，失败时不会部分更新；删除骨骼前可在同一批次处理依赖。
+rotation 使用角度。bone.parentId 与 attachment.boneId 可为 null；scaleX/scaleY 为倍率；anchorX/anchorY 为 0–1；opacity 为 0–1；bendDirection 为 1 或 -1。动画 tracks 为 `{boneId,keyframes,interpolation}` 数组，IK targetKeys 为 `{time,x,y}` 数组。批量指令最终状态统一校验，失败时不会部分更新。
+
+`bone.remove` 删除指定骨骼及其子骨、相关轨道和 IK，保留所有图片素材与部件。受影响部件解除骨骼绑定，将指定动作时间的 FK / IK 世界位置和旋转写入部件，保留缩放、锚点、透明度和图层顺序；未传 `animationId` 或传 null 时使用基础姿态。只删除当前生效 IK 的下骨时，存活根骨的解算姿态也会烘焙到当前动作关键帧或基础旋转，保全仍绑定其上的图片；其他动作保持不变。界面删除传入当前动作与时间，因此图片保留删除前的显示姿态。整个删除事务支持撤销和重做。
+
+`bone.update` 修改 `length` 时，原来末端相连的子骨及相连关键帧跟随新的末端；原有自定义偏移保持不变。涉及该骨骼作为根骨的 IK 会同步下骨位置与适用动作关键帧为 `x=length,y=0`，旋转和目标保持不变。
+
+`project.scale` 同时缩放基础骨架、骨骼动画位置、部件位置和尺寸、IK 目标及目标关键帧。根骨与自由部件围绕指定世界轴心缩放，子骨与绑定部件的局部偏移乘以倍率；骨长和图片缩放倍率同步改变。旋转、时间、原始图片像素及画布尺寸保持不变。项目仍使用 version 1，无需迁移；任何结果超出项目允许范围时整批拒绝。
 
 示例：将一个现有骨骼的旋转写入现有动画 0.5 秒的位置：
 

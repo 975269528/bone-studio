@@ -133,10 +133,12 @@ export interface TwoBoneIKResult {
 
 export type ProjectCommand =
   | { type: 'project.update'; changes: Partial<Pick<Project, 'name' | 'width' | 'height'>> }
+  | { type: 'project.scale'; factor: number; pivotX?: number; pivotY?: number }
   | { type: 'asset.add'; asset: Asset }
+  | { type: 'asset.update'; assetId: string; changes: Partial<Pick<Asset, 'name'>> }
   | { type: 'bone.add'; bone: Bone }
   | { type: 'bone.update'; boneId: string; changes: Partial<Omit<Bone, 'id'>> }
-  | { type: 'bone.remove'; boneId: string }
+  | { type: 'bone.remove'; boneId: string; animationId?: string | null; time?: number }
   | { type: 'attachment.add'; attachment: Attachment }
   | { type: 'attachment.update'; attachmentId: string; changes: Partial<Omit<Attachment, 'id'>> }
   | { type: 'attachment.remove'; attachmentId: string }
