@@ -4,22 +4,23 @@ import { DeleteButton, NumberField, TextField } from './controls';
 import { runCommand, useEditor } from './store';
 import { displayedBone, displayedTarget, updateBone, updateIK } from './pose-edit';
 import { getIKChains } from './ik-chains';
+import { getBoneEditRules } from './bone-edit';
 
 function Section(props: { title: string }) { return <h3 className="property-heading">{props.title}</h3>; }
 
 function BoneProperties(props: { bone: Bone; project: Project }) {
   const { project } = props; const bone = displayedBone(props.bone);
-  const { animationId } = useEditor();
-  const isIKControlled = project.ikConstraints.some(constraint => constraint.enabled && (!constraint.animationId || constraint.animationId === animationId) && [constraint.rootBoneId, constraint.tipBoneId].includes(bone.id));
+  const state = useEditor();
+  const rules = getBoneEditRules(state, bone.id);
   const update = (changes: Partial<Omit<Bone, 'id'>>) => updateBone(props.bone, changes);
   return <><div className="object-kind"><BoneIcon size={16} />骨骼 / BONE</div>
     <TextField label="名称" value={bone.name} onChange={name => update({ name })} />
     <Section title="层级关系" /><label className="field full"><span>父骨骼</span><select value={bone.parentId ?? ''} onChange={event => update({ parentId: event.target.value || null })}>
       <option value="">无 · 根骨骼</option>{project.bones.filter(item => item.id !== bone.id).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </select></label><Section title="局部变换" /><div className="property-grid">
-      <NumberField label="X 位置" value={bone.x} onChange={x => update({ x })} /><NumberField label="Y 位置" value={bone.y} onChange={y => update({ y })} />
-      <NumberField label="旋转 °" disabled={isIKControlled} value={bone.rotation} onChange={rotation => update({ rotation })} /><NumberField label="长度 px" min={1} value={bone.length} onChange={length => update({ length })} />
-    </div><p className="field-help">{isIKControlled ? '旋转由 IK 约束控制。拖动 IK 目标调整姿态，或关闭约束后直接编辑旋转。' : '拖动关节改变位置；拖动骨骼尖端调整旋转。动画模式下修改会记录到当前帧。'}</p>
+      <NumberField label="X 位置" disabled={!!rules.positionConstraint} value={bone.x} onChange={x => update({ x })} /><NumberField label="Y 位置" disabled={!!rules.positionConstraint} value={bone.y} onChange={y => update({ y })} />
+      <NumberField label="旋转 °" disabled={!!rules.rotationConstraint} value={bone.rotation} onChange={rotation => update({ rotation })} /><NumberField label="长度 px" min={1} value={bone.length} onChange={length => update({ length })} />
+    </div><p className="field-help">{rules.help}</p>
     <DeleteButton label="删除骨骼" detail="这会删除整个子骨骼树、绑定图片部件、关联 IK 约束和骨骼动画轨道。素材会保留；删除可以撤销。" command={{ type: 'bone.remove', boneId: bone.id }} /></>;
 }
 

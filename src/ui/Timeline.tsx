@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { Plus, Play, Pause, SkipBack, Diamond, Repeat2, ChevronDown } from 'lucide-react';
-import { samplePose } from '@/core/api';
 import type { Bone } from '@/core/types';
 import { DeleteButton, NumberField, TextField } from './controls';
 import { applyCommands, getEditorState, reportError, runCommand, updateEditor, useEditor } from './store';
 import { displayedTarget } from './pose-edit';
+import { boneKeyframeCommand } from './bone-edit';
 
 function usePlayback() {
   const { isPlaying, animationId, project } = useEditor();
@@ -27,7 +27,6 @@ function usePlayback() {
 export function recordKeyframe(): void {
   const state = getEditorState(); const selection = state.selection;
   if (!selection || !state.animationId) { updateEditor({ message: '请先选择一个骨骼或 IK 约束，并选择动作。' }); return; }
-  const pose = samplePose({ project: state.project, animationId: state.animationId, time: state.time });
   if (selection.kind === 'ik') {
     const constraint = state.project.ikConstraints.find(item => item.id === selection.id)!;
     if (constraint.animationId && constraint.animationId !== state.animationId) {
@@ -36,12 +35,8 @@ export function recordKeyframe(): void {
     const target = displayedTarget(constraint);
     runCommand({ type: 'ik.keyframe.set', constraintId: constraint.id, keyframe: { time: state.time, x: target.targetX, y: target.targetY } });
   } else if (selection.kind === 'bone') {
-    const bone = pose.bones[selection.id]; const parent = bone.parentId ? pose.bones[bone.parentId] : undefined;
-    const radians = (parent?.rotation ?? 0) * Math.PI / 180;
-    const deltaX = bone.x - (parent?.x ?? 0); const deltaY = bone.y - (parent?.y ?? 0);
-    runCommand({ type: 'keyframe.set', animationId: state.animationId, boneId: bone.id, keyframe: {
-      time: state.time, x: deltaX * Math.cos(radians) + deltaY * Math.sin(radians),
-      y: -deltaX * Math.sin(radians) + deltaY * Math.cos(radians), rotation: bone.rotation - (parent?.rotation ?? 0) } });
+    const bone = state.project.bones.find(item => item.id === selection.id);
+    if (bone) runCommand(boneKeyframeCommand(state, bone));
   } else updateEditor({ message: '图片随绑定骨骼移动，请选择绑定的骨骼记录关键帧。' });
 }
 

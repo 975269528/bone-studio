@@ -1,16 +1,16 @@
 import { useEffect, useRef } from 'react';
-import type { PointerEvent } from 'react';
+import type { PointerEvent, RefObject } from 'react';
 import { Bone, Eye, Minus, Plus, Maximize, MousePointer2, Crosshair } from 'lucide-react';
-import { samplePose } from '@/core/api';
-import type { ProjectCommand } from '@/core/types';
 import { renderProject } from '@/render';
 import { applyCommands, getEditorState, reportError, updateEditor, useEditor } from './store';
-import { displayedBone } from './pose-edit';
+import type { EditorState } from './store';
+import { hitCanvasTarget, planCanvasDrag } from './canvas-edit';
+import type { DragTarget, Point } from './canvas-edit';
 
-interface Drag { kind: 'bone' | 'tip' | 'ik'; id: string; committed: boolean }
+interface Drag extends DragTarget { committed: boolean; isBlocked: boolean; start: Point }
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
-const HIT_RADIUS = 18;
+const DRAG_THRESHOLD = 3;
 
 function pointerPosition(event: PointerEvent<HTMLCanvasElement>) {
   const rect = event.currentTarget.getBoundingClientRect();
@@ -18,48 +18,7 @@ function pointerPosition(event: PointerEvent<HTMLCanvasElement>) {
     y: (event.clientY - rect.top) * event.currentTarget.height / rect.height };
 }
 
-function hitTarget(point: { x: number; y: number }): Drag | null {
-  const state = getEditorState();
-  const pose = samplePose({ project: state.project, animationId: state.animationId, time: state.time });
-  for (const constraint of [...state.project.ikConstraints].reverse()) {
-    if (!constraint.enabled || (constraint.animationId && constraint.animationId !== state.animationId)) continue;
-    const tip = pose.bones[constraint.tipBoneId];
-    if (tip && Math.hypot(point.x - tip.endX, point.y - tip.endY) < HIT_RADIUS) return { kind: 'ik', id: constraint.id, committed: false };
-    const target = pose.ikTargets[constraint.id];
-    if (target && Math.hypot(point.x - target.x, point.y - target.y) < HIT_RADIUS) return { kind: 'ik', id: constraint.id, committed: false };
-  }
-  for (const bone of Object.values(pose.bones).reverse()) {
-    if (Math.hypot(point.x - bone.x, point.y - bone.y) < HIT_RADIUS) return { kind: 'bone', id: bone.id, committed: false };
-    if (Math.hypot(point.x - bone.endX, point.y - bone.endY) < HIT_RADIUS) return { kind: 'tip', id: bone.id, committed: false };
-  }
-  return null;
-}
-
-function dragCommand(options: { drag: Drag; point: { x: number; y: number } }): ProjectCommand {
-  const { drag, point } = options;
-  const state = getEditorState();
-  if (drag.kind === 'ik') return state.animationId ? { type: 'ik.keyframe.set', constraintId: drag.id,
-    keyframe: { time: state.time, x: point.x, y: point.y } } : { type: 'ik.update', constraintId: drag.id, changes: { targetX: point.x, targetY: point.y } };
-  const pose = samplePose({ project: state.project, animationId: state.animationId, time: state.time });
-  const bone = state.project.bones.find(item => item.id === drag.id)!;
-  const world = pose.bones[bone.id];
-  const parent = bone.parentId ? pose.bones[bone.parentId] : undefined;
-  const radians = (parent?.rotation ?? 0) * Math.PI / 180;
-  const deltaX = point.x - (parent?.x ?? 0); const deltaY = point.y - (parent?.y ?? 0);
-  const localRotation = world.rotation - (parent?.rotation ?? 0);
-  const current = displayedBone(bone);
-  const changes = drag.kind === 'tip' ? { x: current.x, y: current.y,
-    rotation: Math.atan2(point.y - world.y, point.x - world.x) * 180 / Math.PI - (parent?.rotation ?? 0) } : {
-    x: deltaX * Math.cos(radians) + deltaY * Math.sin(radians),
-    y: -deltaX * Math.sin(radians) + deltaY * Math.cos(radians), rotation: localRotation };
-  return state.animationId ? { type: 'keyframe.set', animationId: state.animationId, boneId: bone.id, keyframe: { time: state.time, ...changes } } : { type: 'bone.update', boneId: bone.id, changes };
-}
-
-/** Render the live pose and provide draggable bone joints and two-bone IK targets. */
-export function Canvas() {
-  const state = useEditor();
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const drag = useRef<Drag | null>(null);
+function useCanvasRender(canvas: RefObject<HTMLCanvasElement | null>, state: EditorState) {
   useEffect(() => {
     let isCurrent = true;
     const buffer = document.createElement('canvas');
@@ -71,18 +30,31 @@ export function Canvas() {
       if (isCurrent && canvas.current) { canvas.current.width = buffer.width; canvas.current.height = buffer.height; canvas.current.getContext('2d')?.drawImage(buffer, 0, 0); }
     }).catch(reportError);
     return () => { isCurrent = false; };
-  }, [state.project, state.animationId, state.time, state.showBones, state.selection]);
+  }, [canvas, state.project, state.animationId, state.time, state.showBones, state.selection]);
+}
+
+function moveDrag(drag: Drag | null, point: Point): void {
+  if (!drag || drag.isBlocked || (!drag.committed && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < DRAG_THRESHOLD)) return;
+  const result = planCanvasDrag({ context: getEditorState(), drag, point });
+  if ('message' in result) { drag.isBlocked = true; updateEditor({ message: result.message }); return; }
+  try { applyCommands([result.command], { coalesce: drag.committed }); drag.committed = true; }
+  catch (error) { drag.isBlocked = true; reportError(error); }
+}
+
+/** Render the live pose and provide draggable bone joints and two-bone IK targets. */
+export function Canvas() {
+  const state = useEditor();
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const drag = useRef<Drag | null>(null);
+  useCanvasRender(canvas, state);
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
     if (!state.showBones) return;
-    drag.current = hitTarget(pointerPosition(event));
-    updateEditor({ isPlaying: false, selection: drag.current ? { kind: drag.current.kind === 'ik' ? 'ik' : 'bone', id: drag.current.id } : null });
+    const point = pointerPosition(event); const target = hitCanvasTarget(getEditorState(), point);
+    drag.current = target ? { ...target, committed: false, isBlocked: false, start: point } : null;
+    updateEditor({ isPlaying: false, selection: target ? { kind: target.kind === 'ik' ? 'ik' : 'bone', id: target.id } : null });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
-  const handlePointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
-    if (!drag.current) return;
-    try { applyCommands([dragCommand({ drag: drag.current, point: pointerPosition(event) })], { coalesce: drag.current.committed }); drag.current.committed = true; }
-    catch (error) { reportError(error); }
-  };
+  const handlePointerMove = (event: PointerEvent<HTMLCanvasElement>) => moveDrag(drag.current, pointerPosition(event));
   return <main className="viewport"><CanvasToolbar /><div className="canvas-area"><div className="canvas-meta">{state.project.width} × {state.project.height}<span>透明画布</span></div>
     <div className="canvas-paper checker" style={{ width: state.project.width * state.zoom, height: state.project.height * state.zoom }}>
       <canvas ref={canvas} aria-label="角色动画画布" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} />

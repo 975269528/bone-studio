@@ -1,28 +1,18 @@
 import { samplePose } from '@/core/api';
 import type { Bone, IKConstraint } from '@/core/types';
 import { getEditorState, runCommand, updateEditor } from './store';
+import { planBoneEdit, sampledLocalBone } from './bone-edit';
 
 /** Read a bone's current sampled local pose for animation property controls. */
 export function displayedBone(bone: Bone): Bone {
-  const state = getEditorState();
-  if (!state.animationId) return bone;
-  const pose = samplePose({ project: state.project, animationId: state.animationId, time: state.time });
-  const world = pose.bones[bone.id]; const parent = bone.parentId ? pose.bones[bone.parentId] : undefined;
-  const radians = (parent?.rotation ?? 0) * Math.PI / 180;
-  const deltaX = world.x - (parent?.x ?? 0); const deltaY = world.y - (parent?.y ?? 0);
-  return { ...bone, x: deltaX * Math.cos(radians) + deltaY * Math.sin(radians),
-    y: -deltaX * Math.sin(radians) + deltaY * Math.cos(radians), rotation: world.rotation - (parent?.rotation ?? 0) };
+  return sampledLocalBone(getEditorState(), bone);
 }
 
 /** Edit transforms in the active animation, or edit the base pose in setup mode. */
 export function updateBone(bone: Bone, changes: Partial<Omit<Bone, 'id'>>): void {
-  const { animationId, time } = getEditorState();
-  const transform = changes.x !== undefined || changes.y !== undefined || changes.rotation !== undefined;
-  if (animationId && transform) {
-    const current = displayedBone(bone);
-    runCommand({ type: 'keyframe.set', animationId, boneId: bone.id,
-      keyframe: { time, x: changes.x ?? current.x, y: changes.y ?? current.y, rotation: changes.rotation ?? current.rotation } });
-  } else runCommand({ type: 'bone.update', boneId: bone.id, changes });
+  const result = planBoneEdit({ context: getEditorState(), bone, changes });
+  if ('message' in result) updateEditor({ message: result.message });
+  else runCommand(result.command);
 }
 
 /** Read the animated IK target independently from a possibly unreachable tip. */
