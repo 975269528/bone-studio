@@ -3,19 +3,24 @@ import type { ReactNode } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import type { ProjectCommand } from '@/core/types';
 import { runCommand, updateEditor } from './store';
+import type { CommitOptions } from './store';
+import { useNumberScrub } from './use-number-scrub';
 
-export interface FieldProps { label: string; value: number; onChange: (value: number) => void; min?: number; max?: number; step?: number; disabled?: boolean }
+export interface FieldProps { label: string; value: number; onChange: (value: number, options?: CommitOptions) => void; min?: number; max?: number; step?: number; disabled?: boolean; isInteger?: boolean }
 
-/** Numeric property control that commits a valid value when editing finishes. */
+/** Numeric control with horizontal label scrubbing and validated keyboard input on blur. */
 export function NumberField(props: FieldProps) {
-  return <label className="field"><span>{props.label}</span><input type="number" key={props.value}
-    defaultValue={Number(props.value.toFixed(3))} min={props.min} max={props.max} step={props.step ?? 'any'} disabled={props.disabled}
+  const scrub = useNumberScrub(props); const isComposing = useRef(false);
+  return <label className="field"><span className={props.disabled ? '' : 'numeric-scrub'} title="左右拖动调整，Shift 微调；数值仍可输入"
+    onPointerDown={scrub.handleStart} onPointerMove={scrub.handleMove} onPointerUp={scrub.handleEnd} onPointerCancel={scrub.handleEnd}>{props.label}</span><input type="number" key={props.value}
+    defaultValue={Number(props.value.toFixed(3))} min={props.min} max={props.max} step={props.isInteger ? props.step ?? 1 : 'any'} disabled={props.disabled}
     onFocus={() => updateEditor({ isPlaying: false })}
     onBlur={event => {
       const value = Number(event.target.value);
       if (event.target.value.trim() && event.target.validity.valid && Number.isFinite(value)) { if (value !== Number(props.value.toFixed(3))) props.onChange(value); }
       else event.target.value = String(props.value);
-    }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); }} /></label>;
+    }} onCompositionStart={() => { isComposing.current = true; }} onCompositionEnd={() => { isComposing.current = false; }}
+    onKeyDown={event => { if (event.key === 'Enter' && !isComposing.current && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) event.currentTarget.blur(); }} /></label>;
 }
 
 /** Named text property control that commits only nonempty values. */

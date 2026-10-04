@@ -2,6 +2,7 @@ import type { Project, ProjectCommand } from './types';
 import { removeBone } from './remove-bone';
 import { scaleProject } from './scale-project';
 import { updateBone } from './update-bone';
+import { editRigBone, reparentRigBone } from './edit-rig';
 
 function requireItem<T extends { id: string }>(items: T[], id: string): T {
   const item = items.find((candidate) => candidate.id === id);
@@ -13,6 +14,8 @@ function mutateBone(project: Project, command: ProjectCommand): boolean {
   switch (command.type) {
     case 'bone.add': project.bones.push(command.bone); return true;
     case 'bone.update': updateBone(project, command); return true;
+    case 'bone.edit': editRigBone(project, command); return true;
+    case 'bone.reparent': reparentRigBone(project, command); return true;
     case 'bone.remove': removeBone(project, command); return true;
     case 'attachment.add': project.attachments.push(command.attachment); return true;
     case 'attachment.update': Object.assign(requireItem(project.attachments, command.attachmentId), command.changes); return true;

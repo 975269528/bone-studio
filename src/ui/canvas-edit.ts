@@ -5,13 +5,16 @@ import type { EditResult } from './bone-edit';
 import type { AttachmentDrag } from './attachment-edit';
 import { hitAttachment, planAttachmentDrag } from './attachment-edit';
 import type { CanvasTool } from './store';
+import type { Selection } from './store';
+import { hitRigTarget, rigContext } from './rig-edit';
 
 export interface Point { x: number; y: number }
-export interface DragTarget { kind: 'bone' | 'tip' | 'ik' | 'attachment' | 'length'; id: string; attachmentDrag?: AttachmentDrag; origin?: Point }
+export interface DragTarget { kind: 'bone' | 'tip' | 'ik' | 'attachment' | 'length' | 'rig-head' | 'rig-tail' | 'rig-body'; id: string; attachmentDrag?: AttachmentDrag; origin?: Point }
 const HIT_RADIUS = 18;
 
 /** Hit-test active IK targets and joints, allowing a connected elbow to remain selectable. */
-export function hitCanvasTarget(context: SamplePoseOptions & { showBones?: boolean }, point: Point, tool: CanvasTool = 'select'): DragTarget | null {
+export function hitCanvasTarget(context: SamplePoseOptions & { showBones?: boolean; zoom?: number; selection?: Selection }, point: Point, tool: CanvasTool = 'select'): DragTarget | null {
+  if (tool === 'rig') return context.showBones === false ? null : hitRigTarget(context, point);
   if (context.showBones === false) return attachmentTarget(context, point, tool === 'rotate' || tool === 'scale' ? tool : 'select');
   const pose = samplePose(context);
   if (tool === 'length') {
@@ -41,8 +44,17 @@ function attachmentTarget(context: SamplePoseOptions, point: Point, mode: Attach
 }
 
 /** Plan a pointer drag while rejecting IK-controlled joint movement or rotation before validation. */
-export function planCanvasDrag(options: { context: SamplePoseOptions; drag: DragTarget; point: Point }): EditResult {
+export function planCanvasDrag(options: { context: SamplePoseOptions & { keepImages?: boolean }; drag: DragTarget; point: Point }): EditResult {
   const { context, drag, point } = options;
+  if (drag.kind.startsWith('rig-')) {
+    const world = samplePose(rigContext(context)).bones[drag.id];
+    if (!world) return { message: '此骨骼已不存在，请重新选择。' };
+    const endpoint = drag.kind === 'rig-head' ? 'head' : drag.kind === 'rig-tail' ? 'tail' : 'body';
+    const origin = drag.origin ?? point;
+    return { command: { type: 'bone.edit', boneId: drag.id, endpoint, keepImages: context.keepImages ?? true,
+      x: endpoint === 'body' ? world.x + point.x - origin.x : point.x,
+      y: endpoint === 'body' ? world.y + point.y - origin.y : point.y } };
+  }
   if (drag.kind === 'attachment' && drag.attachmentDrag) return { command: planAttachmentDrag({ context, drag: drag.attachmentDrag, point }) };
   if (drag.kind === 'ik') return { command: context.animationId ? { type: 'ik.keyframe.set', constraintId: drag.id,
     keyframe: { time: context.time, x: point.x, y: point.y } } : { type: 'ik.update', constraintId: drag.id, changes: { targetX: point.x, targetY: point.y } } };

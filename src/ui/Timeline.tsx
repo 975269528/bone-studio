@@ -5,6 +5,7 @@ import { DeleteButton, NumberField, TextField } from './controls';
 import { applyCommands, getEditorState, reportError, runCommand, updateEditor, useEditor } from './store';
 import { displayedTarget } from './pose-edit';
 import { boneKeyframeCommand } from './bone-edit';
+import type { CommitOptions } from './store';
 
 function usePlayback() {
   const { isPlaying, animationId, project } = useEditor();
@@ -42,14 +43,14 @@ export function recordKeyframe(): void {
 
 function addAnimation() {
   const animation = { id: crypto.randomUUID(), name: `动作 ${getEditorState().project.animations.length + 1}`, duration: 2, fps: 24, loop: true, tracks: [] };
-  try { applyCommands([{ type: 'animation.add', animation }]); updateEditor({ animationId: animation.id, time: 0, isPlaying: false }); }
+  try { applyCommands([{ type: 'animation.add', animation }]); updateEditor({ animationId: animation.id, tool: 'select', time: 0, isPlaying: false }); }
   catch (error) { reportError(error); }
 }
 
 function TimelineHeader() {
   const state = useEditor(); const animation = state.project.animations.find(item => item.id === state.animationId);
   return <div className="timeline-header"><div className="toolbar-group"><span className="panel-label"><Diamond size={14} />时间轴</span>
-    <select aria-label="当前动作" value={state.animationId ?? ''} onChange={event => updateEditor({ animationId: event.target.value || null, time: 0, isPlaying: false })}>
+    <select aria-label="当前动作" value={state.animationId ?? ''} onChange={event => updateEditor({ animationId: event.target.value || null, tool: event.target.value ? 'select' : 'rig', time: 0, isPlaying: false })}>
       <option value="">基础姿态</option>{state.project.animations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
     <button className="icon-button" aria-label="添加动作" onClick={addAnimation}><Plus size={15} /></button></div>
     <div className="transport"><button className="icon-button" aria-label="返回起始帧" onClick={() => updateEditor({ time: 0 })}><SkipBack size={16} /></button>
@@ -87,14 +88,14 @@ function TimelineTracks() {
 function AnimationSettings() {
   const state = useEditor(); const animation = state.project.animations.find(item => item.id === state.animationId);
   if (!animation) return null;
-  const update = (changes: Partial<typeof animation>) => runCommand({ type: 'animation.update', animationId: animation.id, changes });
+  const update = (changes: Partial<typeof animation>, options?: CommitOptions) => runCommand({ type: 'animation.update', animationId: animation.id, changes }, options);
   const selectedTrack = animation.tracks.find(track => track.boneId === state.selection?.id);
   const selectedIK = state.project.ikConstraints.find(constraint => constraint.id === state.selection?.id);
   const keyframe = selectedTrack?.keyframes.find(key => Math.abs(key.time - state.time) < 0.001);
   const targetKey = selectedIK?.targetKeys.find(key => Math.abs(key.time - state.time) < 0.001);
   return <div className="animation-settings"><TextField key={animation.id} label="动作名称" value={animation.name} onChange={name => update({ name })} />
-    <div className="property-grid"><NumberField label="时长 / 秒" min={0.1} max={120} step={0.1} value={animation.duration} onChange={duration => update({ duration })} />
-      <NumberField label="帧率 / FPS" min={1} max={120} step={1} value={animation.fps} onChange={fps => update({ fps })} /></div>
+    <div className="property-grid"><NumberField label="时长 / 秒" min={0.1} max={120} step={0.1} value={animation.duration} onChange={(duration, options) => update({ duration }, options)} />
+      <NumberField label="帧率 / FPS" isInteger min={1} max={120} step={1} value={animation.fps} onChange={(fps, options) => update({ fps }, options)} /></div>
     {selectedTrack && <label className="field full"><span>插值</span><select value={selectedTrack.interpolation} onChange={event => update({ tracks: animation.tracks.map(track => track === selectedTrack ? { ...track, interpolation: event.target.value as 'linear' | 'smooth' | 'step' } : track) })}>
       <option value="linear">线性</option><option value="smooth">平滑</option><option value="step">阶梯</option></select></label>}
     {(keyframe || targetKey) && <DeleteButton label="删除当前关键帧" command={keyframe ? { type: 'keyframe.remove', animationId: animation.id, boneId: selectedTrack!.boneId, time: keyframe.time } : { type: 'ik.keyframe.remove', constraintId: selectedIK!.id, time: targetKey!.time }} />}

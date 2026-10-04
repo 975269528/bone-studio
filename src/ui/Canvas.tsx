@@ -9,17 +9,18 @@ import { hitCanvasTarget, planCanvasDrag } from './canvas-edit';
 import type { DragTarget, Point } from './canvas-edit';
 import { drawnBone } from './draw-bone';
 import { attachmentWorld } from './attachment-edit';
+import { rigContext } from './rig-edit';
 
-interface Drag extends DragTarget { committed: boolean; isBlocked: boolean; start: Point }
+interface Drag extends DragTarget { committed: boolean; isBlocked: boolean; start: Point; revision: number }
 interface Drawing { start: Point; end: Point; parentId: string | null }
 interface Panning { start: Point; original: Point }
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 4;
 const DRAG_THRESHOLD = 3;
 const TOOLS: { value: CanvasTool; label: string }[] = [
-  { value: 'select', label: '选择 / 移动' }, { value: 'draw', label: '绘制骨骼' },
+  { value: 'rig', label: '双端 / 整骨编辑' }, { value: 'select', label: '选择 / 姿态移动' }, { value: 'draw', label: '绘制骨骼' },
   { value: 'rotate', label: '旋转图片' }, { value: 'scale', label: '缩放图片' },
-  { value: 'length', label: '骨骼长度' }, { value: 'pan', label: '平移视图' },
+  { value: 'pan', label: '平移视图' },
 ];
 
 function pointerPosition(event: PointerEvent<HTMLCanvasElement>): Point {
@@ -32,7 +33,8 @@ function useCanvasRender(canvas: RefObject<HTMLCanvasElement | null>, state: Edi
   useEffect(() => {
     let isCurrent = true;
     const buffer = document.createElement('canvas');
-    void renderProject({ canvas: buffer, project: state.project, animationId: state.animationId, time: state.time,
+    const context = state.tool === 'rig' || state.tool === 'draw' ? rigContext(state) : state;
+    void renderProject({ canvas: buffer, ...context,
       overlays: { bones: state.showBones, ik: state.showBones, grid: false,
         selectedBoneId: state.selection?.kind === 'bone' ? state.selection.id : null,
         selectedAttachmentId: state.selection?.kind === 'attachment' ? state.selection.id : null,
@@ -40,14 +42,16 @@ function useCanvasRender(canvas: RefObject<HTMLCanvasElement | null>, state: Edi
       if (isCurrent && canvas.current) { canvas.current.width = buffer.width; canvas.current.height = buffer.height; canvas.current.getContext('2d')?.drawImage(buffer, 0, 0); }
     }).catch(reportError);
     return () => { isCurrent = false; };
-  }, [canvas, state.project, state.animationId, state.time, state.showBones, state.selection]);
+  }, [canvas, state.project, state.animationId, state.time, state.showBones, state.selection, state.tool]);
 }
 
 function moveDrag(drag: Drag | null, point: Point): void {
   if (!drag || drag.isBlocked || (!drag.committed && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < DRAG_THRESHOLD)) return;
-  const result = planCanvasDrag({ context: getEditorState(), drag, point });
+  const state = getEditorState();
+  if (state.revision !== drag.revision) { drag.isBlocked = true; updateEditor({ message: '文档已有其他改动，画布拖动已中断。请重新拖动。' }); return; }
+  const result = planCanvasDrag({ context: state, drag, point });
   if ('message' in result) { drag.isBlocked = true; updateEditor({ message: result.message }); return; }
-  try { applyCommands([result.command], { coalesce: drag.committed }); drag.committed = true; }
+  try { applyCommands([result.command], { coalesce: drag.committed }); drag.committed = true; drag.revision = getEditorState().revision; if (drag.kind === 'rig-body') drag.origin = point; }
   catch (error) { drag.isBlocked = true; reportError(error); }
 }
 
@@ -58,11 +62,12 @@ function useObjectGesture() {
     const state = getEditorState(); if (event.button !== 0 || state.tool === 'pan') return;
     const point = pointerPosition(event); updateEditor({ isPlaying: false });
     if (state.tool === 'draw') {
-      const preview = { start: point, end: point, parentId: state.selection?.kind === 'bone' ? state.selection.id : null };
+      const parentId = state.selection?.kind === 'bone' ? state.selection.id : null;
+      const preview = { start: snappedDrawingStart(state, point), end: point, parentId };
       drawingRef.current = preview; setDrawing(preview);
     } else {
       const target = hitCanvasTarget(state, point, state.tool);
-      drag.current = target ? { ...target, committed: false, isBlocked: false, start: point } : null;
+      drag.current = target ? { ...target, committed: false, isBlocked: false, start: point, revision: state.revision } : null;
       updateEditor({ selection: target ? { kind: target.kind === 'attachment' ? 'attachment' : target.kind === 'ik' ? 'ik' : 'bone', id: target.id } : null });
     }
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -75,7 +80,7 @@ function useObjectGesture() {
   const handlePointerUp = () => {
     const preview = drawingRef.current; drag.current = null; drawingRef.current = null; setDrawing(null);
     if (!preview || Math.hypot(preview.end.x - preview.start.x, preview.end.y - preview.start.y) < DRAG_THRESHOLD) return;
-    const bone = drawnBone({ context: getEditorState(), ...preview });
+    const state = getEditorState(); const bone = drawnBone({ context: rigContext(state), ...preview });
     try { applyCommands([{ type: 'bone.add', bone }]); if (!hasFixedParent) updateEditor({ selection: { kind: 'bone', id: bone.id } }); }
     catch (error) { reportError(error); }
   };
@@ -83,6 +88,14 @@ function useObjectGesture() {
   useEffect(() => { const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') handleCancel(); };
     document.addEventListener('keydown', listener); return () => document.removeEventListener('keydown', listener); }, []);
   return { drawing, hasFixedParent, setHasFixedParent, handlePointerDown, handlePointerMove, handlePointerUp, handleCancel };
+}
+
+function snappedDrawingStart(state: EditorState, point: Point): Point {
+  if (state.selection?.kind !== 'bone') return point;
+  const parent = samplePose(rigContext(state)).bones[state.selection.id]; if (!parent) return point;
+  const joints = [{ x: parent.x, y: parent.y }, { x: parent.endX, y: parent.endY }];
+  joints.sort((left, right) => Math.hypot(left.x - point.x, left.y - point.y) - Math.hypot(right.x - point.x, right.y - point.y));
+  return Math.hypot(joints[0].x - point.x, joints[0].y - point.y) <= 8 / state.zoom ? joints[0] : point;
 }
 
 function useViewGesture(area: RefObject<HTMLDivElement | null>) {
@@ -124,11 +137,13 @@ export function Canvas() {
       <CanvasGuides state={state} drawing={gesture.drawing} />
     </div>
   </div><div className="canvas-help"><Crosshair size={12} /><span>{toolHelp(state)}</span>
+    {state.tool === 'rig' && <label><input type="checkbox" checked={state.keepImages} onChange={event => updateEditor({ keepImages: event.target.checked })} />保持图片原位</label>}
     {state.tool === 'draw' && <label><input type="checkbox" checked={gesture.hasFixedParent} onChange={event => gesture.setHasFixedParent(event.target.checked)} />保持父骨骼</label>}
   </div></main>;
 }
 
 function toolHelp(state: EditorState): string {
+  if (state.tool === 'rig') return '骨架编辑 · ○ 起点 / ◇ 终点独立拖动 · 骨骼线整段移动 · 连接关节一起调整';
   if (state.tool === 'draw') { const parent = state.selection?.kind === 'bone' ? state.project.bones.find(item => item.id === state.selection?.id)?.name : null;
     return `拖出起点和尖端 · ${parent ? `父骨骼：${parent}` : '创建根骨骼'} · Esc 取消`; }
   if (state.tool === 'pan') return '拖动画面平移视图 · 不修改角色 · 适应窗口可重置视图';
@@ -139,10 +154,11 @@ function toolHelp(state: EditorState): string {
 }
 
 function CanvasGuides(props: { state: EditorState; drawing: Drawing | null }) {
-  const { state, drawing } = props; const pose = samplePose(state);
+  const { state, drawing } = props; const pose = samplePose(state.tool === 'rig' || state.tool === 'draw' ? rigContext(state) : state);
   const attachment = state.selection?.kind === 'attachment' ? state.project.attachments.find(item => item.id === state.selection?.id) : undefined;
   const anchor = attachment ? attachmentWorld(state, attachment) : undefined;
   return <svg className="canvas-guides" viewBox={`0 0 ${state.project.width} ${state.project.height}`} aria-hidden="true">
+    {state.tool === 'rig' && state.showBones && <RigHandles state={state} />}
     {state.tool === 'length' && Object.values(pose.bones).map(bone => <circle key={bone.id} cx={bone.endX} cy={bone.endY} r={8 / state.zoom} className="length-handle" />)}
     {anchor && (state.tool === 'rotate' || state.tool === 'scale') && <g className="part-anchor"><circle cx={anchor.x} cy={anchor.y} r={6 / state.zoom} /><path d={`M${anchor.x - 12 / state.zoom},${anchor.y}h${24 / state.zoom} M${anchor.x},${anchor.y - 12 / state.zoom}v${24 / state.zoom}`} /></g>}
     {drawing && <g className="draw-preview"><line x1={drawing.start.x} y1={drawing.start.y} x2={drawing.end.x} y2={drawing.end.y} /><circle cx={drawing.start.x} cy={drawing.start.y} r={5 / state.zoom} /><circle cx={drawing.end.x} cy={drawing.end.y} r={3 / state.zoom} /></g>}
@@ -153,15 +169,30 @@ function clampZoom(value: number): number { return Math.min(MAX_ZOOM, Math.max(M
 
 function CanvasToolbar() {
   const state = useEditor();
-  const handleToolChange = (tool: CanvasTool) => updateEditor({ tool, isPlaying: false, ...(tool === 'draw' ? { animationId: null, time: 0, showBones: true } : tool === 'length' ? { showBones: true } : {}) });
+  const handleToolChange = (tool: CanvasTool) => updateEditor({ tool, isPlaying: false, ...(tool === 'draw' || tool === 'rig' ? { animationId: null, time: 0, showBones: true } : tool === 'length' ? { showBones: true } : {}) });
   const handleFit = () => {
     const rect = document.querySelector('.canvas-area')?.getBoundingClientRect();
     if (rect) updateEditor({ zoom: clampZoom(Math.min((rect.width - 48) / state.project.width, (rect.height - 48) / state.project.height)), pan: { x: 0, y: 0 } });
   };
-  return <div className="canvas-toolbar"><div className="toolbar-group"><select aria-label="画布工具" value={state.tool} onChange={event => handleToolChange(event.target.value as CanvasTool)}>
+  return <div className="canvas-toolbar"><div className="toolbar-group"><div className="edit-modes" aria-label="工作模式">
+    <button aria-pressed={state.tool === 'rig' || state.tool === 'draw'} title="编辑基础骨架 (E)" onClick={() => handleToolChange('rig')}>骨架 <kbd>E</kbd></button>
+    <button aria-pressed={!!state.animationId} disabled={!state.project.animations.length} onClick={() => updateEditor({ tool: 'select', animationId: state.animationId ?? state.project.animations[0]?.id ?? null, time: 0, isPlaying: false })}>动画</button>
+    </div><select aria-label="画布工具" value={state.tool} onChange={event => handleToolChange(event.target.value as CanvasTool)}>
     {TOOLS.map(tool => <option key={tool.value} value={tool.value}>{tool.label}</option>)}</select>
     <button className={state.showBones ? 'tool active-subtle' : 'tool'} title="切换骨骼和 IK 叠加显示" onClick={() => updateEditor({ showBones: !state.showBones })}><Bone size={15} /><span>{state.showBones ? '骨骼' : '纯画面'}</span></button>
-    <select aria-label="编辑模式" value={state.animationId ?? ''} onChange={event => updateEditor({ animationId: event.target.value || null, time: 0, isPlaying: false, ...(event.target.value && state.tool === 'draw' ? { tool: 'select' } : {}) })}><option value="">基础姿态</option>{state.project.animations.map(animation => <option key={animation.id} value={animation.id}>{animation.name}</option>)}</select>
+    {state.animationId && <select aria-label="编辑模式" value={state.animationId} onChange={event => updateEditor({ animationId: event.target.value, time: 0, isPlaying: false, tool: 'select' })}>{state.project.animations.map(animation => <option key={animation.id} value={animation.id}>{animation.name}</option>)}</select>}
   </div><div className="toolbar-group zoom-controls"><button className="icon-button" aria-label="缩小画布" onClick={() => updateEditor({ zoom: clampZoom(state.zoom - 0.1) })}><Minus size={14} /></button><span className="zoom-text">{Math.round(state.zoom * 100)}%</span>
     <button className="icon-button" aria-label="放大画布" onClick={() => updateEditor({ zoom: clampZoom(state.zoom + 0.1) })}><Plus size={14} /></button><button className="icon-button" aria-label="适应窗口" onClick={handleFit}><Maximize size={14} /></button></div></div>;
+}
+
+function RigHandles(props: { state: EditorState }) {
+  const { state } = props; const bones = Object.values(samplePose(rigContext(state)).bones);
+  bones.sort((left, right) => Number(left.id === state.selection?.id) - Number(right.id === state.selection?.id));
+  const radius = 6 / state.zoom;
+  return <>{bones.map(bone => <g key={bone.id} className={`rig-handles ${state.selection?.id === bone.id ? 'selected' : ''}`}>
+    <circle data-bone={bone.id} data-endpoint="head" cx={bone.x} cy={bone.y} r={radius} />
+    <path data-bone={bone.id} data-endpoint="tail" d={`M ${bone.endX} ${bone.endY - radius} l ${radius} ${radius} l ${-radius} ${radius} l ${-radius} ${-radius} Z`} />
+    {state.selection?.id === bone.id && <><text textAnchor="end" x={bone.x - 10 / state.zoom} y={bone.y - 10 / state.zoom} fontSize={10 / state.zoom}>起点</text>
+      <text x={bone.endX + 10 / state.zoom} y={bone.endY - 10 / state.zoom} fontSize={10 / state.zoom}>终点</text></>}
+  </g>)}</>;
 }

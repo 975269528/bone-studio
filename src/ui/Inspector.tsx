@@ -6,6 +6,10 @@ import { runCommand, useEditor } from './store';
 import { displayedBone, displayedTarget, updateBone, updateIK } from './pose-edit';
 import { getIKChains } from './ik-chains';
 import { getBoneEditRules } from './bone-edit';
+import { BoneParent, RigCoordinates } from './RigProperties';
+import { BonePicker } from './BonePicker';
+import { updateEditor } from './store';
+import type { CommitOptions } from './store';
 
 function Section(props: { title: string }) { return <h3 className="property-heading">{props.title}</h3>; }
 
@@ -13,33 +17,32 @@ function BoneProperties(props: { bone: Bone; project: Project }) {
   const { project } = props; const bone = displayedBone(props.bone);
   const state = useEditor();
   const rules = getBoneEditRules(state, bone.id);
-  const update = (changes: Partial<Omit<Bone, 'id'>>) => updateBone(props.bone, changes);
+  const update = (changes: Partial<Omit<Bone, 'id'>>, options?: CommitOptions) => updateBone(props.bone, changes, options);
   return <><div className="object-kind"><BoneIcon size={16} />骨骼 / BONE</div>
     <TextField label="名称" value={bone.name} onChange={name => update({ name })} />
-    <Section title="层级关系" /><label className="field full"><span>父骨骼</span><select value={bone.parentId ?? ''} onChange={event => update({ parentId: event.target.value || null })}>
-      <option value="">无 · 根骨骼</option>{project.bones.filter(item => item.id !== bone.id).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select></label><Section title="局部变换" /><div className="property-grid">
-      <NumberField label="X 位置" disabled={!!rules.positionConstraint} value={bone.x} onChange={x => update({ x })} /><NumberField label="Y 位置" disabled={!!rules.positionConstraint} value={bone.y} onChange={y => update({ y })} />
-      <NumberField label="旋转 °" disabled={!!rules.rotationConstraint} value={bone.rotation} onChange={rotation => update({ rotation })} /><NumberField label="长度 px" min={1} value={bone.length} onChange={length => update({ length })} />
-    </div><p className="field-help">{rules.help}</p>
+    <Section title="层级关系" /><BoneParent bone={props.bone} project={project} /><Section title={state.tool === 'rig' ? '基础骨架 · 两端坐标' : '局部变换'} />
+    {state.tool === 'rig' ? <RigCoordinates bone={bone} /> : <><div className="property-grid">
+      <NumberField label="X 位置" disabled={!!rules.positionConstraint} value={bone.x} onChange={(x, options) => update({ x }, options)} /><NumberField label="Y 位置" disabled={!!rules.positionConstraint} value={bone.y} onChange={(y, options) => update({ y }, options)} />
+      <NumberField label="旋转 °" disabled={!!rules.rotationConstraint} value={bone.rotation} onChange={(rotation, options) => update({ rotation }, options)} /><NumberField label="长度 px" min={1} value={bone.length} onChange={(length, options) => update({ length }, options)} />
+    </div><p className="field-help">{rules.help}</p></>}
     <DeleteButton label="删除骨骼" detail="删除此骨骼及其子骨骼、关联 IK 和骨骼动画轨道。图片部件会保留，并按当前画面位置解除绑定；删除可以撤销。" command={{ type: 'bone.remove', boneId: bone.id, animationId: state.animationId, time: state.time }} /></>;
 }
 
 function AttachmentProperties(props: { attachment: Attachment; project: Project }) {
   const { attachment, project } = props;
-  const update = (changes: Partial<Omit<Attachment, 'id'>>) => runCommand({ type: 'attachment.update', attachmentId: attachment.id, changes });
+  const update = (changes: Partial<Omit<Attachment, 'id'>>, options?: CommitOptions) => runCommand({ type: 'attachment.update', attachmentId: attachment.id, changes }, options);
   const fields = [{ key: 'x', label: 'X 偏移' }, { key: 'y', label: 'Y 偏移' }, { key: 'rotation', label: '旋转 °' },
     { key: 'zIndex', label: '图层顺序' }, { key: 'scaleX', label: 'X 缩放' }, { key: 'scaleY', label: 'Y 缩放' },
     { key: 'anchorX', label: 'X 锚点', min: 0, max: 1 }, { key: 'anchorY', label: 'Y 锚点', min: 0, max: 1 },
     { key: 'opacity', label: '不透明度', min: 0, max: 1 }] as const;
   return <><div className="object-kind"><Image size={16} />图片部件 / SLOT</div><TextField label="名称" value={attachment.name} onChange={name => update({ name })} />
-    <Section title="绑定" /><label className="field full"><span><Link2 size={12} />骨骼</span><select value={attachment.boneId ?? ''} onChange={event => update({ boneId: event.target.value || null })}>
-      <option value="">无 · 画布坐标</option>{project.bones.map(bone => <option key={bone.id} value={bone.id}>{bone.name}</option>)}</select></label>
+    <Section title="图片绑定 · 随骨骼运动" /><BonePicker project={project} label="绑定骨骼" value={attachment.boneId} onChange={boneId => update({ boneId })} />
+    {attachment.boneId && <button className="full-button" onClick={() => updateEditor({ selection: { kind: 'bone', id: attachment.boneId! } })}><Link2 size={12} />查看绑定骨骼</button>}
     <label className="field full"><span>图片素材</span><select value={attachment.assetId} onChange={event => update({ assetId: event.target.value })}>
       {project.assets.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label>
     <Section title="变换与外观" /><div className="property-grid">{fields.map(field => <NumberField key={field.key} label={field.label} value={attachment[field.key]}
       min={'min' in field ? field.min : undefined} max={'max' in field ? field.max : undefined} step={field.key.includes('cale') || field.key.includes('nchor') || field.key === 'opacity' ? 0.05 : 1}
-      onChange={value => update({ [field.key]: value })} />)}</div>
+      isInteger={field.key === 'zIndex'} onChange={(value, options) => update({ [field.key]: value }, options)} />)}</div>
     <DeleteButton label="删除图片部件" command={{ type: 'attachment.remove', attachmentId: attachment.id }} /></>;
 }
 
@@ -47,7 +50,7 @@ function IKProperties(props: { constraint: IKConstraint; project: Project }) {
   const { project } = props; const constraint = { ...props.constraint, ...displayedTarget(props.constraint) };
   const chains = getIKChains({ project, constraint: props.constraint });
   const roots = [...new Map(chains.map(chain => [chain.root.id, chain.root])).values()];
-  const update = (changes: Partial<Omit<IKConstraint, 'id'>>) => updateIK(props.constraint, changes);
+  const update = (changes: Partial<Omit<IKConstraint, 'id'>>, options?: CommitOptions) => updateIK(props.constraint, changes, options);
   return <><div className="object-kind"><Crosshair size={16} />两段 IK / CONSTRAINT</div><TextField label="名称" value={constraint.name} onChange={name => update({ name })} />
     <Section title="骨骼链" /><label className="field full"><span>第一段骨骼</span><select value={constraint.rootBoneId} onChange={event => {
       const rootBoneId = event.target.value; const tip = chains.find(chain => chain.root.id === rootBoneId)?.tip;
@@ -55,8 +58,8 @@ function IKProperties(props: { constraint: IKConstraint; project: Project }) {
     }}>{roots.map(bone => <option key={bone.id} value={bone.id}>{bone.name}</option>)}</select></label>
     <label className="field full"><span>第二段骨骼</span><select value={constraint.tipBoneId} onChange={event => update({ tipBoneId: event.target.value })}>
       {chains.filter(chain => chain.root.id === constraint.rootBoneId).map(chain => <option key={chain.tip.id} value={chain.tip.id}>{chain.tip.name}</option>)}</select></label>
-    <Section title="目标坐标" /><div className="property-grid"><NumberField label="目标 X" value={constraint.targetX} onChange={targetX => update({ targetX })} />
-      <NumberField label="目标 Y" value={constraint.targetY} onChange={targetY => update({ targetY })} /></div>
+    <Section title="目标坐标" /><div className="property-grid"><NumberField label="目标 X" value={constraint.targetX} onChange={(targetX, options) => update({ targetX }, options)} />
+      <NumberField label="目标 Y" value={constraint.targetY} onChange={(targetY, options) => update({ targetY }, options)} /></div>
     <label className="field full"><span>适用动作</span><select value={constraint.animationId ?? ''} onChange={event => update({ animationId: event.target.value || undefined })}>
       <option value="">所有动作与基础姿态</option>{project.animations.map(animation => <option key={animation.id} value={animation.id}>{animation.name}</option>)}</select></label>
     <label className="field full"><span>弯曲方向</span><select value={constraint.bendDirection} onChange={event => update({ bendDirection: Number(event.target.value) as 1 | -1 })}><option value={1}>顺时针</option><option value={-1}>逆时针</option></select></label>
@@ -68,8 +71,8 @@ function IKProperties(props: { constraint: IKConstraint; project: Project }) {
 function ProjectProperties(props: { project: Project }) {
   const { project } = props;
   return <><div className="object-kind"><SlidersHorizontal size={16} />项目 / DOCUMENT</div><TextField label="项目名称" value={project.name} onChange={name => runCommand({ type: 'project.update', changes: { name } })} />
-    <Section title="输出画布" /><div className="property-grid"><NumberField label="宽度 px" value={project.width} min={16} max={4096} onChange={width => runCommand({ type: 'project.update', changes: { width } })} />
-      <NumberField label="高度 px" value={project.height} min={16} max={4096} onChange={height => runCommand({ type: 'project.update', changes: { height } })} /></div>
+    <Section title="输出画布" /><div className="property-grid"><NumberField label="宽度 px" isInteger value={project.width} min={16} max={4096} onChange={(width, options) => runCommand({ type: 'project.update', changes: { width } }, options)} />
+      <NumberField label="高度 px" isInteger value={project.height} min={16} max={4096} onChange={(height, options) => runCommand({ type: 'project.update', changes: { height } }, options)} /></div>
     <ProjectScale /><div className="info-card"><strong>让静态角色动起来</strong><p>① 导入已拆分图片部件<br />② 绘制骨骼，绑定部件<br />③ 设置 IK 或记录关键帧<br />④ 预览并导出动作</p></div>
     <Section title="文档统计" /><dl className="document-stats"><dt>图片素材</dt><dd>{project.assets.length}</dd><dt>骨骼</dt><dd>{project.bones.length}</dd><dt>动作</dt><dd>{project.animations.length}</dd><dt>IK 约束</dt><dd>{project.ikConstraints.length}</dd></dl></>;
 }

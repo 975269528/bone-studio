@@ -1,7 +1,6 @@
 import type { Animation, IKConstraint, Project } from './types';
 import { projectSchema } from './schema';
-
-const CONNECTION_TOLERANCE = 0.0001;
+import { CONNECTION_TOLERANCE, getBoneConnection } from './bone-connections';
 
 export interface ValidationResult {
   valid: boolean;
@@ -47,6 +46,18 @@ function keyErrors(keys: { time: number }[], duration: number, label: string): s
   return errors;
 }
 
+function connectionErrors(project: Project): string[] {
+  const lookup = new Map(project.bones.map((bone) => [bone.id, bone]));
+  return project.bones.flatMap((bone) => {
+    if (!bone.connection || bone.connection === 'none') return [];
+    const parent = lookup.get(bone.parentId ?? '');
+    if (!parent) return [`根骨骼不能声明父关节连接：${bone.name}`];
+    const expectedX = bone.connection === 'tail' ? parent.length : 0;
+    return Math.abs(bone.x - expectedX) > CONNECTION_TOLERANCE || Math.abs(bone.y) > CONNECTION_TOLERANCE
+      ? [`骨骼共享关节坐标不一致：${bone.name}`] : [];
+  });
+}
+
 function animationErrors(animation: Animation, boneIds: Set<string>): string[] {
   const tracks = new Set<string>();
   const errors: string[] = [];
@@ -64,7 +75,7 @@ function constraintErrors(project: Project, constraint: IKConstraint): string[] 
   const tip = project.bones.find((bone) => bone.id === constraint.tipBoneId);
   if (!root || !tip) return [`IK 引用不存在的骨骼：${constraint.name}`];
   const errors: string[] = [];
-  if (tip.parentId !== root.id || Math.abs(tip.x - root.length) > CONNECTION_TOLERANCE
+  if (tip.parentId !== root.id || getBoneConnection(tip, root) !== 'tail' || Math.abs(tip.x - root.length) > CONNECTION_TOLERANCE
     || Math.abs(tip.y) > CONNECTION_TOLERANCE) errors.push(`IK 需要首尾相接的两根骨骼：${constraint.name}`);
   const animation = project.animations.find((item) => item.id === constraint.animationId);
   if (constraint.animationId && !animation) errors.push(`IK 引用不存在的动画：${constraint.name}`);
@@ -109,7 +120,7 @@ export function validateProject(input: unknown): ValidationResult {
   if (!result.success) return { valid: false, errors: result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`) };
   const project: Project = result.data;
   const errors = [...duplicateErrors(project), ...hierarchyErrors(project),
-    ...referenceErrors(project), ...overlappingErrors(project)];
+    ...connectionErrors(project), ...referenceErrors(project), ...overlappingErrors(project)];
   return { valid: errors.length === 0, errors };
 }
 

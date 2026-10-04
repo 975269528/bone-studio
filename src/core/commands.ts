@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ExecuteCommandOptions, ExecuteCommandsOptions, ProjectCommand } from './types';
 import { animationSchema, assetSchema, attachmentSchema, boneKeyframeSchema,
-  boneSchema, coordinateSchema, idSchema, ikSchema, interpolationSchema, projectChangesSchema,
+  boneSchema, connectionSchema, coordinateSchema, idSchema, ikSchema, interpolationSchema, projectChangesSchema,
   targetKeyframeSchema, timeSchema } from './schema';
 import { parseProject } from './validation';
 import { applyMutation } from './mutations';
@@ -14,6 +14,10 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('asset.update'), assetId: idSchema, changes: assetSchema.pick({ name: true }).partial().strict() }).strict(),
   z.object({ type: z.literal('bone.add'), bone: boneSchema }).strict(),
   z.object({ type: z.literal('bone.update'), boneId: idSchema, changes: boneSchema.omit({ id: true }).partial().strict() }).strict(),
+  z.object({ type: z.literal('bone.edit'), boneId: idSchema, endpoint: z.enum(['head', 'tail', 'body']),
+    x: coordinateSchema, y: coordinateSchema, keepImages: z.boolean().optional() }).strict(),
+  z.object({ type: z.literal('bone.reparent'), boneId: idSchema, parentId: idSchema.nullable(),
+    connection: connectionSchema.optional(), keepImages: z.boolean().optional() }).strict(),
   z.object({ type: z.literal('bone.remove'), boneId: idSchema,
     animationId: idSchema.nullable().optional(), time: timeSchema.optional() }).strict(),
   z.object({ type: z.literal('attachment.add'), attachment: attachmentSchema }).strict(),

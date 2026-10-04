@@ -11,6 +11,7 @@ export function handleShortcut(event: KeyboardEvent): void {
   else if (modifier && event.key.toLowerCase() === 'y') { event.preventDefault(); redo(); }
   else if (modifier && event.key.toLowerCase() === 's') { event.preventDefault(); void saveProject(); }
   else if (event.key.toLowerCase() === 'k' && !modifier) { event.preventDefault(); recordKeyframe(); }
+  else if (event.key.toLowerCase() === 'e' && !modifier) { event.preventDefault(); updateEditor({ tool: 'rig', animationId: null, time: 0, isPlaying: false, showBones: true }); }
   else if (event.code === 'Space' && !document.querySelector('[role="dialog"]')) {
     event.preventDefault(); const state = getEditorState(); if (state.animationId) updateEditor({ isPlaying: !state.isPlaying });
   }

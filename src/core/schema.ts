@@ -1,11 +1,13 @@
 import { z } from 'zod';
+import { MAX_ROTATION } from './rotation';
 
 export const idSchema = z.string().min(1).max(128);
 const nameSchema = z.string().min(1).max(200);
 export const coordinateSchema = z.number().finite().min(-1_000_000).max(1_000_000);
-const angleSchema = z.number().finite().min(-360_000).max(360_000);
+const angleSchema = z.number().finite().min(-MAX_ROTATION).max(MAX_ROTATION);
 export const timeSchema = z.number().finite().min(0).max(600);
 export const interpolationSchema = z.enum(['linear', 'smooth', 'step']);
+export const connectionSchema = z.enum(['head', 'tail', 'none']);
 
 export const assetSchema = z.object({
   id: idSchema,
@@ -19,6 +21,7 @@ export const boneSchema = z.object({
   id: idSchema,
   name: nameSchema,
   parentId: idSchema.nullable(),
+  connection: connectionSchema.optional(),
   x: coordinateSchema,
   y: coordinateSchema,
   rotation: angleSchema,

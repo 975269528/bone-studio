@@ -6,10 +6,15 @@ export interface Asset {
   height: number;
 }
 
+export type BoneConnection = 'head' | 'tail' | 'none';
+export type BoneEndpoint = 'head' | 'tail' | 'body';
+
 export interface Bone {
   id: string;
   name: string;
   parentId: string | null;
+  /** 父骨共享关节；缺省时按旧版基础坐标推断，none 明确脱开。 */
+  connection?: BoneConnection;
   x: number;
   y: number;
   rotation: number;
@@ -138,6 +143,8 @@ export type ProjectCommand =
   | { type: 'asset.update'; assetId: string; changes: Partial<Pick<Asset, 'name'>> }
   | { type: 'bone.add'; bone: Bone }
   | { type: 'bone.update'; boneId: string; changes: Partial<Omit<Bone, 'id'>> }
+  | { type: 'bone.edit'; boneId: string; endpoint: BoneEndpoint; x: number; y: number; keepImages?: boolean }
+  | { type: 'bone.reparent'; boneId: string; parentId: string | null; connection?: BoneConnection; keepImages?: boolean }
   | { type: 'bone.remove'; boneId: string; animationId?: string | null; time?: number }
   | { type: 'attachment.add'; attachment: Attachment }
   | { type: 'attachment.update'; attachmentId: string; changes: Partial<Omit<Attachment, 'id'>> }

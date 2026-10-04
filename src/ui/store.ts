@@ -3,7 +3,8 @@ import { createDemoProject, executeCommands, parseProject } from '@/core/api';
 import type { Project, ProjectCommand } from '@/core/types';
 
 export type Selection = { kind: 'bone' | 'attachment' | 'ik' | 'asset'; id: string } | null;
-export type CanvasTool = 'select' | 'draw' | 'rotate' | 'scale' | 'length' | 'pan';
+export type CanvasTool = 'select' | 'rig' | 'draw' | 'rotate' | 'scale' | 'length' | 'pan';
+export interface CommitOptions { coalesce?: boolean }
 export interface EditorState {
   project: Project;
   revision: number;
@@ -15,6 +16,7 @@ export interface EditorState {
   zoom: number;
   pan: { x: number; y: number };
   tool: CanvasTool;
+  keepImages: boolean;
   past: Project[];
   future: Project[];
   message: string;
@@ -27,7 +29,7 @@ const initialProject = createDemoProject();
 let state: EditorState = {
   project: initialProject, revision: 0, selection: null,
   animationId: initialProject.animations[0]?.id ?? null, time: 0, isPlaying: false,
-  showBones: true, zoom: 0.85, pan: { x: 0, y: 0 }, tool: 'select', past: [], future: [], message: '', messageVersion: 0, isDirty: false, isSaving: false,
+  showBones: true, zoom: 0.85, pan: { x: 0, y: 0 }, tool: 'select', keepImages: true, past: [], future: [], message: '', messageVersion: 0, isDirty: false, isSaving: false,
 };
 const listeners = new Set<() => void>();
 const HISTORY_LIMIT = 80;
@@ -63,8 +65,8 @@ export function applyCommands(commands: unknown[], options?: { expectedRevision?
 }
 
 /** Run an editor command and present validation errors in the status area. */
-export function runCommand(command: ProjectCommand): void {
-  try { applyCommands([command]); }
+export function runCommand(command: ProjectCommand, options?: CommitOptions): void {
+  try { applyCommands([command], options); }
   catch (error) { reportError(error); }
 }
 
@@ -72,7 +74,7 @@ export function runCommand(command: ProjectCommand): void {
 export function replaceProject(project: unknown): void {
   const valid = parseProject(project);
   updateEditor({ project: valid, revision: state.revision + 1, past: [], future: [],
-    selection: null, animationId: valid.animations[0]?.id ?? null, time: 0, isPlaying: false,
+    selection: null, animationId: valid.animations[0]?.id ?? null, tool: valid.animations.length ? 'select' : 'rig', time: 0, isPlaying: false,
     isDirty: false, message: '项目已打开' });
 }
 

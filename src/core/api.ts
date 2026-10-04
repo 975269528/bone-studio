@@ -7,5 +7,6 @@ export { createHistory, applyHistory, undoHistory, redoHistory } from './history
 export { projectSchema, assetSchema } from './schema';
 export { commandSchema } from './commands';
 export { forwardKinematics } from './kinematics';
+export { getBoneConnection } from './bone-connections';
 export type { ValidationResult } from './validation';
 export type { ProjectHistory } from './history';
