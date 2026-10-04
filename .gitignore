@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-electron/
+dist-mcp/
+output/
+.playwright-cli/
+.env
+.env.local
+.env.*.local
+!.env.example
+__pycache__/
+vendor/
+.DS_Store
+coverage/
+*.log
+logs/
+人物风格标准模板.png
