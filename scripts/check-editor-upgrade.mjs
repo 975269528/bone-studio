@@ -15,6 +15,12 @@ const savedPath = path.join(directory, 'saved.json');
 let context;
 let failure;
 
+async function configureAutoViewport() {
+  if (!process.argv.includes('--small-viewport')) return;
+  await context.application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1100, 720));
+  await context.page.waitForFunction(() => globalThis.innerWidth === 1100 && globalThis.innerHeight === 720);
+}
+
 /** Exercise live keyboard and timeline interactions only through the isolated packaged UI. */
 async function checkEditing() {
   await checkFreshUpgrade(context);
@@ -61,11 +67,13 @@ try {
     await captureUpgradeLayouts({ context, artifacts });
     console.log('Hidden packaged upgrade UI: inline curve and stable light/dark 1100/1600 layout capture passed.');
   } else if (process.argv.includes('--auto-only')) {
+    await configureAutoViewport();
     await checkUpgradeAutoKey({ context, directory });
     console.log('Hidden packaged Auto K UI: off drafts/current PNG/manual K/metadata/undo; automatic FK move/rotation and IK pointer recording; literal input K; skeleton mode passed.');
   } else {
     await checkRestarts(await checkEditing());
     context = await launchUpgradeSession({ directory, profile });
+    await configureAutoViewport();
     await checkUpgradeAutoKey({ context, directory });
     console.log('Hidden packaged upgrade UI: fresh skeleton/New label; Space repeat/release and editable guards; atomic multi-key normal/reverse paste/Delete/undo; inline curve pointer and sampled PNG; duration preview/retiming/undo; light/dark 1100/1600 layouts; restart/path/default/fallback passed.');
     console.log('Hidden packaged Auto K UI: off drafts/current PNG/manual K/metadata/undo; automatic FK move/rotation and IK pointer recording; literal input K; skeleton mode passed.');

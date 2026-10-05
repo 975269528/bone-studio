@@ -4,6 +4,7 @@ import path from 'node:path';
 import { callUpgradeTool } from './editor-upgrade-session.mjs';
 import { configureUpgradeDialogs, openUpgradeFixture } from './editor-upgrade-startup.mjs';
 import { createAutoKeyProject } from './editor-upgrade-auto-fixture.mjs';
+import { startObservedScrub, readScrubObservation } from './editor-upgrade-scrub.mjs';
 const FK_NAME = '验收骨骼';
 const IK_NAME = '⊕ 验收 IK';
 const CHECK_TIME = 0.5;
@@ -126,11 +127,7 @@ async function checkManualIk(context) {
 }
 
 async function startNumericScrub(context, label, distance) {
-  const bounds = await context.page.locator('.inspector .numeric-scrub').filter({ hasText: new RegExp(`^${label}$`) }).boundingBox();
-  assert.ok(bounds);
-  await context.page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
-  await context.page.mouse.down();
-  await context.page.mouse.move(bounds.x + bounds.width / 2 + distance, bounds.y + bounds.height / 2, { steps: 8 });
+  await startObservedScrub(context, label, distance);
 }
 
 /** Multi-step scrubs keep progressing; Escape restores their snapshot, retaining earlier unrecorded poses. */
@@ -141,7 +138,9 @@ async function checkNumericDraftEscape(context) {
   const rotationInput = context.page.locator('.inspector').getByRole('spinbutton', { name: '旋转 °', exact: true });
   const rotation = Number(await rotationInput.inputValue());
   await startNumericScrub(context, '旋转 °', 30);
-  assert.ok(Number(await rotationInput.inputValue()) > rotation + 15, 'Every scrub pointer step must continue despite the first draft notice.');
+  const finalRotation = Number(await rotationInput.inputValue());
+  const observed = await readScrubObservation(context);
+  assert.ok(finalRotation > rotation + 15, `Scrub must continue: ${JSON.stringify({ rotation, finalRotation, observed })}`);
   assert.deepEqual((await readState(context)).project, before);
   await context.page.keyboard.press('Escape'); await context.page.mouse.up();
   assert.equal(Number(await rotationInput.inputValue()), rotation);
@@ -150,6 +149,7 @@ async function checkNumericDraftEscape(context) {
   await startNumericScrub(context, '长度 px', 25);
   assert.notDeepEqual((await readState(context)).project.bones, before.bones);
   await context.page.keyboard.press('Escape'); await context.page.mouse.up();
+  await readScrubObservation(context);
   assert.deepEqual((await readState(context)).project, before);
   assert.equal(Number(await context.page.locator('.inspector').getByRole('spinbutton', { name: 'X 位置', exact: true }).inputValue()), 150);
   assert.ok((await currentPreview(context)).equals(preview));
@@ -157,6 +157,7 @@ async function checkNumericDraftEscape(context) {
   await startNumericScrub(context, 'X 偏移', 25);
   assert.notDeepEqual((await readState(context)).project.attachments, before.attachments);
   await context.page.keyboard.press('Escape'); await context.page.mouse.up();
+  await readScrubObservation(context);
   assert.deepEqual((await readState(context)).project, before);
   await selectObject(context, FK_NAME);
   assert.equal(Number(await context.page.locator('.inspector').getByRole('spinbutton', { name: 'X 位置', exact: true }).inputValue()), 150);
