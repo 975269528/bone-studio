@@ -54,8 +54,9 @@ function bakeSurvivingRoots(options: { project: Project; command: RemoveBoneComm
       if (!animation) { bone.rotation = local.rotation; return; }
       let track = animation.tracks.find((item) => item.boneId === bone.id);
       if (!track) { track = { boneId: bone.id, interpolation: 'linear', keyframes: [] }; animation.tracks.push(track); }
+      const previous = track.keyframes.find((key) => key.time === time);
       track.keyframes = track.keyframes.filter((key) => key.time !== time);
-      track.keyframes.push({ time, ...local });
+      track.keyframes.push({ ...previous, time, ...local });
       track.keyframes.sort((left, right) => left.time - right.time);
     });
 }

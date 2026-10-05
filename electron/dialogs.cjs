@@ -1,7 +1,8 @@
-const { dialog } = require('electron');
+const { app, dialog } = require('electron');
 const { z } = require('zod');
 const { importAssets, readProject, writeOutput } = require('./files.cjs');
 const { createProjectFiles } = require('./project-files.cjs');
+const { createRecentProject } = require('./recent-project.cjs');
 const saveSchema = z.object({
   suggestedName: z.string().min(1).max(200),
   data: z.string().max(360000000),
@@ -11,13 +12,18 @@ const saveSchema = z.object({
 
 /** Register dialog-only filesystem capabilities for the trusted editor window. */
 function registerDialogs(window, ipcMain) {
-  const projects = createProjectFiles({ window, dialog, readProject, writeOutput });
+  const recent = createRecentProject(app.getPath('userData'));
+  const projects = createProjectFiles({ window, dialog, readProject, writeOutput, recent });
   const assertSender = (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw new Error('无权访问桌面文件接口。');
   };
   ipcMain.handle('project:session', (event, input) => {
     assertSender(event);
-    projects.setSession(input);
+    return projects.setSession(input);
+  });
+  ipcMain.handle('project:restore', (event, input) => {
+    assertSender(event);
+    return projects.restore(input);
   });
   ipcMain.handle('project:open', (event, input) => {
     assertSender(event);

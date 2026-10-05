@@ -28,6 +28,24 @@ async function callTool(client, name, args = {}) {
   return JSON.parse(text.text);
 }
 
+/** Assert a fresh profile is empty, then explicitly load the example used by existing GUI checks. */
+async function loadExampleForChecks({ page, client }) {
+  const initial = await callTool(client, 'get_project');
+  for (const key of ['bones', 'assets', 'attachments', 'animations', 'ikConstraints']) assert.deepEqual(initial.project[key], []);
+  assert.equal(initial.dirty, false);
+  await page.getByRole('button', { name: '新建项目', exact: true }).click();
+  await page.getByRole('button', { name: '加载示例人物', exact: true }).click();
+  assert.ok((await callTool(client, 'get_project')).project.animations.length > 0);
+}
+
+/** Give the portable export checks an explicit animation while retaining empty startup coverage. */
+async function preparePortableAnimation(client) {
+  const initial = await callTool(client, 'get_project');
+  for (const key of ['bones', 'assets', 'attachments', 'animations', 'ikConstraints']) assert.deepEqual(initial.project[key], []);
+  await callTool(client, 'apply_commands', { commands: [{ type: 'animation.add',
+    animation: { id: 'package-animation', name: '打包验收动作', duration: 1, fps: 1, loop: true, tracks: [] } }] });
+}
+
 /** Create explicit small image fixtures outside the user's workspace and profile. */
 async function createFixtures(page) {
   const png = page ? Buffer.from(await page.evaluate(() => {
@@ -141,6 +159,7 @@ async function checkPackagedEditor() {
     const profile = await application.evaluate(({ app, BrowserWindow }) => ({ userData: app.getPath('userData'), sessionData: app.getPath('sessionData'), visible: BrowserWindow.getAllWindows()[0].isVisible(), packaged: app.isPackaged }));
     assert.deepEqual(profile, { userData: path.dirname(connectionPath), sessionData: path.dirname(connectionPath), visible: false, packaged: true });
     await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('electron/mcp.cjs')], env: { ...process.env, BONE_STUDIO_CONNECTION: connectionPath } }));
+    await loadExampleForChecks({ page, client });
     await checkDesktopFiles({ application, page, client, fixtures });
     await checkMcpFiles({ client, fixtures });
     await checkPackagedMcpConfiguration({ application, page, directory, artifacts });
@@ -185,7 +204,10 @@ async function checkPortableLauncher({ isSmoke = false } = {}) {
     await waitForConnection(connection);
     await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('electron/mcp.cjs')], env: { ...process.env, BONE_STUDIO_CONNECTION: connection } }));
     if (isSmoke) await checkPortablePreview(client);
-    else await checkMcpFiles({ client, fixtures: await createFixtures() });
+    else {
+      await preparePortableAnimation(client);
+      await checkMcpFiles({ client, fixtures: await createFixtures() });
+    }
     const tree = await checkProcessTree(child.pid);
     const checks = isSmoke ? 'renamed portable EXE; isolated MCP PNG preview; no console process; ASAR local-load guard' : 'real portable EXE; MCP batch/undo/preview/export/save; local loading verified by ASAR guard plus packaged file URL';
     console.log(JSON.stringify({ portableLauncher: executablePath, processNames: tree.map(item => item.Name), checks }, null, 2));
@@ -197,6 +219,9 @@ async function checkPortableLauncher({ isSmoke = false } = {}) {
 
 /** Check the renamed portable through direct PNG output without GUI or clipboard interactions. */
 async function checkPortablePreview(client) {
+  const initial = await callTool(client, 'get_project');
+  assert.deepEqual(initial.project.bones, []);
+  assert.deepEqual(initial.project.animations, []);
   const result = await client.callTool({ name: 'render_preview', arguments: {} });
   assert.ok(!result.isError);
   const image = result.content.find(item => item.type === 'image');

@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
+import { checkRecentProject } from './check-recent-project.mjs';
 const require = createRequire(import.meta.url);
 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'bone-studio-dialog-test-'));
 const handlers = new Map();
@@ -19,7 +20,7 @@ const dialog = {
 };
 const electronPath = require.resolve('electron');
 const previousElectron = require.cache[electronPath];
-require.cache[electronPath] = { exports: { dialog, nativeImage: {} } };
+require.cache[electronPath] = { exports: { app: { getPath: () => directory }, dialog, nativeImage: {} } };
 const { registerDialogs } = require('../electron/dialogs.cjs');
 const { createProjectFiles } = require('../electron/project-files.cjs');
 registerDialogs(window, { handle: (name, handler) => handlers.set(name, handler) });
@@ -105,9 +106,11 @@ async function checkBoundary(documentId) {
 /** A completed write for an old document cannot grant its path to a replacement session. */
 async function checkLateWrite() {
   const delayed = deferred();
+  const remembered = [];
   let writeCount = 0;
   let dialogs = 0;
   const projects = createProjectFiles({ window, readProject: async () => ({}),
+    recent: { rememberSaved: async filePath => { remembered.push(filePath); } },
     dialog: { showSaveDialog: async () => { dialogs += 1; return { filePath: destination(`late-${dialogs}.json`) }; } },
     writeOutput: async options => { writeCount += 1; if (writeCount === 1) await delayed.promise; return options.outputPath; },
   });
@@ -119,8 +122,10 @@ async function checkLateWrite() {
   projects.setSession({ documentId });
   delayed.resolve();
   assert.equal(await oldSave, null);
+  assert.deepEqual(remembered, []);
   assert.equal(await projects.save(saveInput(documentId)), destination('late-2.json'));
   assert.equal(dialogs, 2);
+  assert.deepEqual(remembered, [destination('late-2.json')]);
 }
 
 /** Serialize real publications to one approved path across document replacements. */
@@ -157,6 +162,7 @@ try {
   await checkBoundary(await checkOpen(documentId));
   await checkLateWrite();
   await checkSamePathWrites();
+  await checkRecentProject(directory);
   console.log('项目保存 IPC：首次选址、原路径覆盖、另存为、打开授权、取消/失败、导出隔离、重复请求及文档切换保护通过（模拟对话框 + 真实临时文件）。');
 } finally {
   if (previousElectron) require.cache[electronPath] = previousElectron;

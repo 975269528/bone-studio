@@ -11,8 +11,12 @@ import { drawnBone } from './draw-bone';
 import { attachmentWorld } from './attachment-edit';
 import { rigContext } from './rig-edit';
 import { getEditorMode, selectCanvasTool, setEditorMode } from './editor-modes';
+import { applyPoseEdit } from './auto-keyframe';
+import { POSE_DRAFT_HELP, visiblePoseContext } from './pose-preview';
+import { advanceEditorGesture, cancelEditorGesture, captureEditorGesture, isEditorGestureCurrent } from './editor-gesture';
+import type { EditorGesture } from './editor-gesture';
 
-interface Drag extends DragTarget { committed: boolean; isBlocked: boolean; start: Point; revision: number }
+interface Drag extends DragTarget { committed: boolean; isBlocked: boolean; start: Point; gesture: EditorGesture }
 interface Drawing { start: Point; end: Point; parentId: string | null }
 interface Panning { start: Point; original: Point }
 const MIN_ZOOM = 0.1;
@@ -43,24 +47,24 @@ function useCanvasRender(canvas: RefObject<HTMLCanvasElement | null>, state: Edi
       if (isCurrent && canvas.current) { canvas.current.width = buffer.width; canvas.current.height = buffer.height; canvas.current.getContext('2d')?.drawImage(buffer, 0, 0); }
     }).catch(reportError);
     return () => { isCurrent = false; };
-  }, [canvas, state.project, state.animationId, state.time, state.showBones, state.selection, state.tool]);
+  }, [canvas, state.project, state.poseDraft, state.animationId, state.time, state.showBones, state.selection, state.tool]);
 }
 
 function moveDrag(drag: Drag | null, point: Point): void {
   if (!drag || drag.isBlocked || (!drag.committed && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < DRAG_THRESHOLD)) return;
   const state = getEditorState();
-  if (state.revision !== drag.revision) { drag.isBlocked = true; updateEditor({ message: '文档已有其他改动，画布拖动已中断。请重新拖动。' }); return; }
+  if (!isEditorGestureCurrent(drag.gesture)) { drag.isBlocked = true; updateEditor({ message: '文档或当前姿态已有其他改动，画布拖动已中断。请重新拖动。' }); return; }
   const result = planCanvasDrag({ context: canvasContext(state), drag, point });
   if ('message' in result) { drag.isBlocked = true; updateEditor({ message: result.message }); return; }
-  try { applyCommands([result.command], { coalesce: drag.committed }); drag.committed = true; drag.revision = getEditorState().revision; if (drag.kind === 'rig-body') drag.origin = point; }
+  try { applyPoseEdit(result.command, { coalesce: drag.committed }); drag.committed = true; advanceEditorGesture(drag.gesture); if (drag.kind === 'rig-body') drag.origin = point; }
   catch (error) { drag.isBlocked = true; reportError(error); }
 }
 
 function useObjectGesture() {
   const drag = useRef<Drag | null>(null); const [drawing, setDrawing] = useState<Drawing | null>(null);
   const drawingRef = useRef<Drawing | null>(null); const [hasFixedParent, setHasFixedParent] = useState(true);
-  const { documentId, animationId, tool } = useEditor();
-  useEffect(() => { drag.current = null; drawingRef.current = null; setDrawing(null); }, [documentId, animationId, tool]);
+  const { documentId, animationId, time, tool } = useEditor();
+  useEffect(() => { drag.current = null; drawingRef.current = null; setDrawing(null); }, [documentId, animationId, time, tool]);
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
     const state = getEditorState(); if (event.button !== 0 || state.tool === 'pan') return;
     const point = pointerPosition(event); updateEditor({ isPlaying: false });
@@ -70,7 +74,7 @@ function useObjectGesture() {
       drawingRef.current = preview; setDrawing(preview);
     } else {
       const target = hitCanvasTarget(canvasContext(state), point, state.tool);
-      drag.current = target ? { ...target, committed: false, isBlocked: false, start: point, revision: state.revision } : null;
+      drag.current = target ? { ...target, committed: false, isBlocked: false, start: point, gesture: captureEditorGesture(state) } : null;
       updateEditor({ selection: target ? { kind: target.kind === 'attachment' ? 'attachment' : target.kind === 'ik' ? 'ik' : 'bone', id: target.id } : null });
     }
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -87,7 +91,7 @@ function useObjectGesture() {
     try { applyCommands([{ type: 'bone.add', bone }]); if (!hasFixedParent) updateEditor({ selection: { kind: 'bone', id: bone.id } }); }
     catch (error) { reportError(error); }
   };
-  const handleCancel = () => { drag.current = null; drawingRef.current = null; setDrawing(null); };
+  const handleCancel = () => { if (drag.current?.committed) cancelEditorGesture(drag.current.gesture); drag.current = null; drawingRef.current = null; setDrawing(null); };
   useEffect(() => { const listener = (event: KeyboardEvent) => { if (event.key === 'Escape') handleCancel(); };
     document.addEventListener('keydown', listener); return () => document.removeEventListener('keydown', listener); }, []);
   return { drawing, hasFixedParent, setHasFixedParent, handlePointerDown, handlePointerMove, handlePointerUp, handleCancel };
@@ -146,6 +150,7 @@ export function Canvas() {
 }
 
 function toolHelp(state: EditorState): string {
+  if (state.poseDraft) return POSE_DRAFT_HELP;
   if (state.tool === 'rig') return '骨架编辑 · ○ 起点 / ◇ 终点独立拖动 · 骨骼线整段移动 · 连接关节一起调整';
   if (state.tool === 'draw') { const parent = state.selection?.kind === 'bone' ? state.project.bones.find(item => item.id === state.selection?.id)?.name : null;
     return `拖出起点和尖端 · ${parent ? `父骨骼：${parent}` : '创建根骨骼'} · Esc 取消`; }
@@ -153,7 +158,7 @@ function toolHelp(state: EditorState): string {
   if (state.tool === 'rotate') return '拖动图片边缘，围绕锚点旋转 · 修改图片基础变换';
   if (state.tool === 'scale') return '从图片边缘向外 / 向内拖动，等比缩放 · 修改图片基础变换';
   if (state.tool === 'length') return '拖动圆形尖端调整基础骨骼长度 · IK 连接点自动同步';
-  return state.animationId ? '拖动关节或 IK 目标记录当前帧 · 拖动图片调整基础位置' : '基础姿态 · 拖动关节移动，尖端旋转 · 图片可直接拖动';
+  return state.animationId ? `${state.isAutoKeyframe ? '自动 K 开启 · 调整关节或 IK 目标记录当前帧' : '自动 K 关闭 · 调整后按 K 录帧'} · 拖动图片调整基础位置` : '基础姿态 · 拖动关节移动，尖端旋转 · 图片可直接拖动';
 }
 
 function CanvasGuides(props: { state: EditorState; drawing: Drawing | null }) {
@@ -171,7 +176,7 @@ function CanvasGuides(props: { state: EditorState; drawing: Drawing | null }) {
 function clampZoom(value: number): number { return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)); }
 
 function canvasContext(state: EditorState): EditorState {
-  return getEditorMode(state) === 'rig' ? { ...state, ...rigContext(state) } : state;
+  return { ...state, ...(getEditorMode(state) === 'rig' ? rigContext(state) : visiblePoseContext(state)) };
 }
 
 function CanvasToolbar() {

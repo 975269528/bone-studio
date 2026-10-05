@@ -42,9 +42,20 @@ export interface BoneKeyframe {
   x: number;
   y: number;
   rotation: number;
+  /** 控制此关键帧到下一关键帧的插值；缺省时沿用轨道设置。 */
+  interpolation?: Interpolation;
+  curve?: BezierCurve;
 }
 
-export type Interpolation = 'linear' | 'smooth' | 'step';
+export type Interpolation = 'linear' | 'smooth' | 'step' | 'step-start' | 'bezier';
+
+/** 从 (0,0) 到 (1,1) 的三次贝塞尔缓动控制点，所有坐标限制在 [0,1]。 */
+export interface BezierCurve {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
 
 export interface BoneTrack {
   boneId: string;
@@ -65,6 +76,9 @@ export interface TargetKeyframe {
   time: number;
   x: number;
   y: number;
+  /** 控制此目标帧到下一目标帧的插值；缺省时为线性。 */
+  interpolation?: Interpolation;
+  curve?: BezierCurve;
 }
 
 export interface IKConstraint {

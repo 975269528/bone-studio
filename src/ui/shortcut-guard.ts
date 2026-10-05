@@ -1,6 +1,12 @@
 interface ShortcutContext { hasDialog: boolean; hasEditableTarget: boolean }
 type ModeKeyEvent = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'isComposing' | 'repeat'>;
 
+/** Reserve unmodified Space for editor playback, including repeats that must suppress native button clicks. */
+export function isPlaybackShortcut(event: ModeKeyEvent & { code: string; shiftKey: boolean; keyCode?: number }, context: ShortcutContext & { hasMenu: boolean }): boolean {
+  return event.code === 'Space' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
+    && !event.isComposing && event.keyCode !== 229 && !context.hasDialog && !context.hasEditableTarget && !context.hasMenu;
+}
+
 /** Accept Del only in an idle editor context, without modifiers, composition or held-key repeats. */
 export function isDeletionShortcut(event: ModeKeyEvent & { keyCode?: number; shiftKey?: boolean }, context: ShortcutContext & { hasMenu: boolean; hasGesture: boolean }): boolean {
   return event.key === 'Delete' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey

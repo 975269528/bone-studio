@@ -46,6 +46,8 @@ declare global {
       /** Copy the current installation's MCP client JSON using the native clipboard. */
       copyMcpConfiguration(): Promise<void>;
       openProject(options: { documentId: string }): Promise<DesktopProjectFile | null>;
+      /** Read the last native-approved project for startup; validate before adopting its token. */
+      restoreProject(options: { documentId: string }): Promise<DesktopProjectFile | null>;
       setProjectSession(options: { documentId: string; openToken?: string }): Promise<void>;
       saveProject(options: SaveProjectOptions): Promise<string | null>;
       importImages(): Promise<import('@/core/types').Asset[]>;

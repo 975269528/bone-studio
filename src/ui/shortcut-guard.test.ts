@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { isDeletionShortcut, isEditableShortcutTarget, isModeShortcut } from './shortcut-guard';
+import { isDeletionShortcut, isEditableShortcutTarget, isModeShortcut, isPlaybackShortcut } from './shortcut-guard';
 
 const modeKey = { key: 'q', ctrlKey: false, metaKey: false, altKey: false, isComposing: false, repeat: false };
 const canvasContext = { hasDialog: false, hasEditableTarget: false };
@@ -13,6 +13,20 @@ it('recognizes only Q as the unmodified mode cycle key', () => {
   for (const modifier of ['ctrlKey', 'metaKey', 'altKey', 'repeat', 'isComposing'] as const) {
     expect(isModeShortcut({ ...modeKey, [modifier]: true }, canvasContext)).toBe(false);
   }
+});
+
+it('reserves Space repeats for playback but leaves modifiers, composition and native UI alone', () => {
+  const event = { ...modeKey, code: 'Space', key: ' ', shiftKey: false, keyCode: 32 };
+  const context = { ...canvasContext, hasMenu: false };
+  expect(isPlaybackShortcut(event, context)).toBe(true);
+  expect(isPlaybackShortcut({ ...event, repeat: true }, context)).toBe(true);
+  for (const key of ['ctrlKey', 'metaKey', 'altKey', 'shiftKey', 'isComposing'] as const) {
+    expect(isPlaybackShortcut({ ...event, [key]: true }, context)).toBe(false);
+  }
+  for (const key of ['hasDialog', 'hasEditableTarget', 'hasMenu'] as const) {
+    expect(isPlaybackShortcut(event, { ...context, [key]: true })).toBe(false);
+  }
+  expect(isPlaybackShortcut({ ...event, keyCode: 229 }, context)).toBe(false);
 });
 
 it('leaves text editing and modal interactions alone', () => {

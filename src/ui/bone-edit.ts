@@ -20,7 +20,7 @@ export function getBoneEditRules(context: SamplePoseOptions, boneId: string): Bo
   const positionHelp = positionConstraint ? 'IK 下骨必须保持与上骨连接，不能单独移动关节。' : '';
   const rotationHelp = rotationConstraint ? '旋转由 IK 控制，请拖动 IK 目标调整姿态。'
     : positionConstraint ? '可以编辑旋转；如需独立移动此骨骼，请先移除关联 IK 约束。'
-      : '拖动关节改变位置；拖动骨骼尖端调整旋转。动画模式下修改会记录到当前帧。';
+      : '拖动关节改变位置；拖动骨骼尖端调整旋转。动画模式通过自动 K 或按 K 记录当前姿态。';
   return { positionConstraint, rotationConstraint, help: positionHelp + rotationHelp };
 }
 

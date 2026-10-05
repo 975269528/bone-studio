@@ -1,4 +1,5 @@
 import type { BoneKeyframe, Interpolation, TargetKeyframe } from './types';
+import { sampleEasing } from './curves';
 
 interface KeyPair<T> {
   left: T;
@@ -19,12 +20,6 @@ function findPair<T extends { time: number }>(keys: T[], time: number): KeyPair<
   return { left, right, progress: (time - left.time) / (right.time - left.time) };
 }
 
-function easedProgress(progress: number, interpolation: Interpolation): number {
-  if (interpolation === 'step') return 0;
-  if (interpolation === 'smooth') return progress * progress * (3 - 2 * progress);
-  return progress;
-}
-
 function blend(start: number, end: number, progress: number): number {
   return start + (end - start) * progress;
 }
@@ -33,15 +28,18 @@ function blend(start: number, end: number, progress: number): number {
 export function sampleBoneTrack(options: { keys: BoneKeyframe[]; time: number; interpolation: Interpolation }): BoneKeyframe | null {
   const pair = findPair(options.keys, options.time);
   if (!pair) return null;
-  const progress = easedProgress(pair.progress, options.interpolation);
+  const progress = sampleEasing({ progress: pair.progress,
+    interpolation: pair.left.interpolation ?? options.interpolation, curve: pair.left.curve });
   return { time: options.time, x: blend(pair.left.x, pair.right.x, progress),
     y: blend(pair.left.y, pair.right.y, progress), rotation: blend(pair.left.rotation, pair.right.rotation, progress) };
 }
 
-/** 线性采样 IK 目标；没有目标关键帧时由调用者使用约束静态目标。 */
+/** 按左目标帧的缓动采样 IK，旧目标帧默认线性；空轨道由调用者使用静态目标。 */
 export function sampleTargetTrack(options: { keys: TargetKeyframe[]; time: number }): TargetKeyframe | null {
   const pair = findPair(options.keys, options.time);
   if (!pair) return null;
-  return { time: options.time, x: blend(pair.left.x, pair.right.x, pair.progress),
-    y: blend(pair.left.y, pair.right.y, pair.progress) };
+  const progress = sampleEasing({ progress: pair.progress,
+    interpolation: pair.left.interpolation ?? 'linear', curve: pair.left.curve });
+  return { time: options.time, x: blend(pair.left.x, pair.right.x, progress),
+    y: blend(pair.left.y, pair.right.y, progress) };
 }

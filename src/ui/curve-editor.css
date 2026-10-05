@@ -1,0 +1,38 @@
+.curve-editor { padding-top: 7px; border-top: 1px solid var(--border); }
+.curve-segment-label { margin: 0 0 6px; color: var(--text-muted); font: 10px var(--font-mono, monospace); }
+.curve-note { margin: 7px 0 10px; color: var(--text-muted); font-size: 9px; line-height: 1.7; }
+.curve-workspace { display: grid; flex: 1; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; height: 100%; padding: 10px 12px; gap: 9px; }
+.curve-key-navigation { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.curve-key-navigation strong { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: auto; font-size: 11px; }
+.curve-key-navigation select { min-width: 100px; font-size: 10px; }
+.curve-key-navigation button { padding: 2px 7px; font-size: 15px; }
+.curve-workspace-body { display: grid; grid-template-columns: minmax(0, 1fr) 230px; min-height: 0; gap: 14px; }
+.curve-workspace-plot { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; }
+.curve-workspace-plot > .curve-note { text-align: center; margin: 3px 0 0; }
+.curve-workspace-controls { min-height: 0; overflow-y: auto; padding-right: 4px; overscroll-behavior: contain; }
+.curve-workspace-controls .field { gap: 5px; }
+.curve-workspace-controls .field input, .curve-workspace-controls .field select { font-size: 10px; padding: 5px 7px; }
+.curve-workspace-controls .field.full { margin-bottom: 8px; }
+.curve-graph { display: block; width: 100%; height: 100%; min-height: 0; overflow: visible; }
+.curve-graph.is-editable { touch-action: none; }
+.curve-plot { fill: var(--surface); stroke: var(--border-strong); }
+.curve-grid { stroke: var(--border); stroke-width: 0.6; fill: none; }
+.curve-diagonal { stroke: var(--text-subtle); stroke-dasharray: 3 4; stroke-width: 0.7; fill: none; }
+.curve-line { stroke: var(--accent); stroke-width: 2.5; fill: none; }
+.curve-handle-line { stroke: var(--text-muted); stroke-width: 1; }
+.curve-handle { cursor: grab; stroke: var(--surface-raised); stroke-width: 2; }
+.curve-handle:active { cursor: grabbing; }
+.curve-handle:focus-visible { outline: none; stroke: var(--text-strong); stroke-width: 3; }
+.curve-handle-1 { fill: var(--accent); }
+.curve-handle-2 { fill: var(--success, #75c9b7); }
+.curve-graph text { fill: var(--text-muted); font-size: 9px; pointer-events: none; }
+.curve-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 9px; }
+.curve-presets button { font-size: 10px; padding: 5px 3px; }
+.curve-coordinates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.curve-coordinates .field { min-width: 0; }
+.curve-transfer-controls { display: flex; gap: 4px; }
+.curve-transfer-controls button { font-size: 10px; padding: 5px 6px; }
+@media (max-width: 1000px) {
+  .curve-workspace-body { grid-template-columns: minmax(0, 1fr) 175px; gap: 8px; }
+  .curve-key-navigation strong { max-width: 120px; }
+}

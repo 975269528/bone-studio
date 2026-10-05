@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { createDemoProject, executeCommands, parseProject } from '@/core/api';
+import { createEmptyProject, executeCommands, parseProject } from '@/core/api';
 import type { Project, ProjectCommand } from '@/core/types';
+import { mustDiscardPose } from './pose-preview';
+import type { PoseDraft } from './pose-preview';
 
 export type Selection = { kind: 'bone' | 'attachment' | 'ik' | 'asset'; id: string } | null;
 export type CanvasTool = 'select' | 'rig' | 'draw' | 'rotate' | 'scale' | 'length' | 'pan';
@@ -14,6 +16,9 @@ export interface EditorState {
   animationId: string | null;
   time: number;
   isPlaying: boolean;
+  isAutoKeyframe: boolean;
+  poseDraft: PoseDraft | null;
+  poseVersion: number;
   showBones: boolean;
   zoom: number;
   pan: { x: number; y: number };
@@ -27,11 +32,12 @@ export interface EditorState {
   isSaving: boolean;
 }
 
-const initialProject = createDemoProject();
+const initialProject = createEmptyProject();
 let state: EditorState = {
   project: initialProject, documentId: crypto.randomUUID(), documentPath: null, revision: 0, selection: null,
   animationId: initialProject.animations[0]?.id ?? null, time: 0, isPlaying: false,
-  showBones: true, zoom: 0.85, pan: { x: 0, y: 0 }, tool: 'select', keepImages: true, past: [], future: [], message: '', messageVersion: 0, isDirty: false, isSaving: false,
+  isAutoKeyframe: false, poseDraft: null, poseVersion: 0,
+  showBones: true, zoom: 0.85, pan: { x: 0, y: 0 }, tool: 'rig', keepImages: true, past: [], future: [], message: '', messageVersion: 0, isDirty: false, isSaving: false,
 };
 const listeners = new Set<() => void>();
 const HISTORY_LIMIT = 80;
@@ -72,7 +78,11 @@ export function useEditor(): EditorState {
 
 /** Update transient editor state without adding document undo entries. */
 export function updateEditor(changes: Partial<EditorState>): void {
-  state = { ...state, ...changes, messageVersion: changes.message ? state.messageVersion + 1 : state.messageVersion };
+  const discarded = mustDiscardPose(state, changes);
+  const poseDraft = discarded ? null : changes.poseDraft === undefined ? state.poseDraft : changes.poseDraft;
+  const message = discarded ? `${changes.message ? `${changes.message} · ` : ''}未录帧姿态已清除。` : changes.message;
+  state = { ...state, ...changes, poseDraft, poseVersion: state.poseVersion + Number(poseDraft !== state.poseDraft),
+    ...(message === undefined ? {} : { message }), messageVersion: message ? state.messageVersion + 1 : state.messageVersion };
   listeners.forEach(listener => listener());
 }
 
@@ -106,6 +116,7 @@ export function replaceProject(project: unknown, file?: { path: string; openToke
 
 /** Restore the preceding document snapshot while retaining monotonic revision numbers. */
 export function undo(): void {
+  if (state.poseDraft) { updateEditor({ poseDraft: null, message: '未录帧姿态已撤销。' }); return; }
   const previous = state.past.at(-1);
   if (!previous) return;
   updateEditor({ project: previous, past: state.past.slice(0, -1),

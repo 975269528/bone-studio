@@ -3,23 +3,25 @@ import type { Bone, IKConstraint } from '@/core/types';
 import { getEditorState, runCommand, updateEditor } from './store';
 import type { CommitOptions } from './store';
 import { planBoneEdit, sampledLocalBone } from './bone-edit';
+import { runPoseEdit } from './auto-keyframe';
+import { visiblePoseContext } from './pose-preview';
 
 /** Read a bone's current sampled local pose for animation property controls. */
 export function displayedBone(bone: Bone): Bone {
-  return sampledLocalBone(getEditorState(), bone);
+  return sampledLocalBone(visiblePoseContext(getEditorState()), bone);
 }
 
 /** Edit transforms in the active animation, or edit the base pose in setup mode. */
 export function updateBone(bone: Bone, changes: Partial<Omit<Bone, 'id'>>, options?: CommitOptions): void {
-  const result = planBoneEdit({ context: getEditorState(), bone, changes });
+  const result = planBoneEdit({ context: visiblePoseContext(getEditorState()), bone, changes });
   if ('message' in result) updateEditor({ message: result.message });
-  else runCommand(result.command, options);
+  else runPoseEdit(result.command, options);
 }
 
 /** Read the animated IK target independently from a possibly unreachable tip. */
 export function displayedTarget(constraint: IKConstraint): { targetX: number; targetY: number } {
   const state = getEditorState();
-  const target = samplePose({ project: state.project, animationId: state.animationId, time: state.time }).ikTargets[constraint.id];
+  const target = samplePose(visiblePoseContext(state)).ikTargets[constraint.id];
   return target ? { targetX: target.x, targetY: target.y } : constraint;
 }
 
@@ -32,7 +34,7 @@ export function updateIK(constraint: IKConstraint, changes: Partial<Omit<IKConst
       return;
     }
     const target = displayedTarget(constraint);
-    runCommand({ type: 'ik.keyframe.set', constraintId: constraint.id,
+    runPoseEdit({ type: 'ik.keyframe.set', constraintId: constraint.id,
       keyframe: { time, x: changes.targetX ?? target.targetX, y: changes.targetY ?? target.targetY } }, options);
   } else runCommand({ type: 'ik.update', constraintId: constraint.id, changes }, options);
 }

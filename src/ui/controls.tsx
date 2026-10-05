@@ -15,7 +15,7 @@ export interface FieldProps { label: string; value: number; onChange: (value: nu
 export function NumberField(props: FieldProps) {
   const scrub = useNumberScrub(props); const isComposing = useRef(false);
   return <label className="field"><span className={props.disabled ? '' : 'numeric-scrub'} title="左右拖动调整，Shift 微调；数值仍可输入"
-    onPointerDown={scrub.handleStart} onPointerMove={scrub.handleMove} onPointerUp={scrub.handleEnd} onPointerCancel={scrub.handleEnd}>{props.label}</span><input type="number" key={props.value}
+    onPointerDown={scrub.handleStart} onPointerMove={scrub.handleMove} onPointerUp={scrub.handleEnd} onPointerCancel={scrub.handleCancel}>{props.label}</span><input type="number" key={props.value}
     defaultValue={Number(props.value.toFixed(3))} min={props.min} max={props.max} step={props.isInteger ? props.step ?? 1 : 'any'} disabled={props.disabled}
     onFocus={() => updateEditor({ isPlaying: false })}
     onBlur={event => {

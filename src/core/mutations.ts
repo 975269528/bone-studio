@@ -10,6 +10,12 @@ function requireItem<T extends { id: string }>(items: T[], id: string): T {
   return item;
 }
 
+function setKeyframe<T extends { time: number }>(keys: T[], keyframe: T): T[] {
+  const previous = keys.find((key) => key.time === keyframe.time);
+  return [...keys.filter((key) => key.time !== keyframe.time), { ...previous, ...keyframe }]
+    .sort((left, right) => left.time - right.time);
+}
+
 function mutateBone(project: Project, command: ProjectCommand): boolean {
   switch (command.type) {
     case 'bone.add': project.bones.push(command.bone); return true;
@@ -42,9 +48,7 @@ function mutateAnimation(project: Project, command: ProjectCommand): boolean {
       let track = animation.tracks.find((item) => item.boneId === command.boneId);
       if (!track) { track = { boneId: command.boneId, keyframes: [], interpolation: command.interpolation ?? 'linear' }; animation.tracks.push(track); }
       if (command.interpolation) track.interpolation = command.interpolation;
-      track.keyframes = track.keyframes.filter((key) => key.time !== command.keyframe.time);
-      track.keyframes.push(command.keyframe);
-      track.keyframes.sort((left, right) => left.time - right.time);
+      track.keyframes = setKeyframe(track.keyframes, command.keyframe);
       return true;
     }
     case 'keyframe.remove': {
@@ -68,9 +72,7 @@ function mutateIK(project: Project, command: ProjectCommand): boolean {
       return true;
     case 'ik.keyframe.set': {
       const constraint = requireItem(project.ikConstraints, command.constraintId);
-      constraint.targetKeys = constraint.targetKeys.filter((key) => key.time !== command.keyframe.time);
-      constraint.targetKeys.push(command.keyframe);
-      constraint.targetKeys.sort((left, right) => left.time - right.time);
+      constraint.targetKeys = setKeyframe(constraint.targetKeys, command.keyframe);
       return true;
     }
     case 'ik.keyframe.remove': {

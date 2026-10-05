@@ -132,13 +132,18 @@ export async function checkCopiedMcpRestart(options) {
   let failure;
   const env = { ...process.env, BONE_STUDIO_DEV_URL: '', BONE_STUDIO_USER_DATA: profile, BONE_STUDIO_HIDDEN: '1' };
   delete env.ELECTRON_RUN_AS_NODE;
+  const savedPath = path.join(directory, 'desktop-save.json');
   try {
+    const savedProject = JSON.parse(await fs.readFile(savedPath, 'utf8'));
     assert.equal((await client.callTool({ name: 'get_project', arguments: {} })).isError, true);
     for (let index = 0; index < 2; index += 1) {
       application = await electron.launch({ executablePath: path.resolve('release/win-unpacked/BoneStudio.exe'), cwd: directory, env, timeout: 30000 });
       const page = await application.firstWindow();
       await page.getByRole('button', { name: '保存', exact: true }).waitFor();
-      assert.ok(!(await client.callTool({ name: 'get_project', arguments: {} })).isError);
+      const restored = await client.callTool({ name: 'get_project', arguments: {} });
+      assert.ok(!restored.isError);
+      assert.deepEqual(JSON.parse(restored.content.find(item => item.type === 'text').text).project, savedProject);
+      assert.equal(await page.locator('.project-title').getAttribute('title'), savedPath);
       await application.close();
       application = undefined;
       assert.equal((await client.callTool({ name: 'get_project', arguments: {} })).isError, true);

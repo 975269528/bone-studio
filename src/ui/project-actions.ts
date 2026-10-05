@@ -34,6 +34,35 @@ export async function openDesktopProject(): Promise<void> {
   catch (error) { if (documentId === getEditorState().documentId) reportError(error); }
 }
 
+/** Restore startup before mounting the editor, so MCP and user edits see a settled document. */
+export async function restoreStartupProject(): Promise<void> {
+  if (!window.boneStudio) return;
+  const initial = getEditorState();
+  let expected = initial;
+  const isUnchanged = () => expected.documentId === getEditorState().documentId && expected.revision === getEditorState().revision;
+  try {
+    await getDocumentSessionReady();
+    if (!isUnchanged()) return;
+    const file = await window.boneStudio.restoreProject({ documentId: initial.documentId });
+    if (!file || !isUnchanged()) return;
+    replaceProject(JSON.parse(file.text) as unknown, file);
+    expected = getEditorState();
+    await getDocumentSessionReady();
+    if (!isUnchanged()) return;
+    updateEditor({ message: '已恢复上次编辑的项目' });
+  } catch (error) {
+    if (!isUnchanged()) return;
+    if (expected !== initial) {
+      replaceProject(createEmptyProject());
+      expected = getEditorState();
+      await getDocumentSessionReady().catch(reportError);
+      if (!isUnchanged()) return;
+    }
+    const reason = error instanceof Error ? error.message : String(error);
+    reportError(reason.startsWith('无法恢复上次项目：') ? reason : `无法恢复上次项目：${reason} 已启动空白骨架。`);
+  }
+}
+
 /** Start a new empty document after the caller has handled unsaved changes. */
 export function newProject(): void { replaceProject(createEmptyProject()); }
 

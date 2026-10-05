@@ -1,6 +1,7 @@
 import { capturePreview, exportAnimation } from '@/render';
 import { applyCommands, getEditorState, redo, undo } from './store';
 import type { AutomationRequest } from './desktop';
+import { visiblePoseContext } from './pose-preview';
 
 function readParams(value: unknown): Record<string, unknown> {
   if (value === undefined || value === null) return {};
@@ -20,7 +21,7 @@ function applyAutomation(params: Record<string, unknown>): unknown {
 export async function handleAutomation(request: AutomationRequest): Promise<unknown> {
   const params = readParams(request.params);
   const state = getEditorState();
-  const animationId = typeof params.animationId === 'string' ? params.animationId : state.animationId;
+  const animationId = params.animationId === null ? null : typeof params.animationId === 'string' ? params.animationId : state.animationId;
   if (request.method === 'get_project') return { project: state.project, revision: state.revision,
     dirty: state.isDirty, selection: state.selection, animationId: state.animationId, time: state.time };
   if (request.method === 'save_project') return state.project;
@@ -34,8 +35,8 @@ export async function handleAutomation(request: AutomationRequest): Promise<unkn
     return { project: getEditorState().project, revision: getEditorState().revision };
   }
   if (request.method === 'render_preview') {
-    const dataUrl = await capturePreview({ project: state.project, animationId,
-      time: typeof params.time === 'number' ? params.time : state.time });
+    const dataUrl = await capturePreview(visiblePoseContext(state, { animationId,
+      time: typeof params.time === 'number' ? params.time : state.time }));
     return { base64: dataUrl.split(',')[1], mimeType: 'image/png', width: state.project.width, height: state.project.height };
   }
   if (request.method === 'export_animation') {

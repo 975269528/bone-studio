@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('boneStudio', {
   getMcpConfiguration: () => ipcRenderer.invoke('mcp:configuration'),
   copyMcpConfiguration: () => ipcRenderer.invoke('mcp:copy'),
   openProject: (options) => ipcRenderer.invoke('project:open', options),
+  restoreProject: (options) => ipcRenderer.invoke('project:restore', options),
   setProjectSession: (options) => ipcRenderer.invoke('project:session', options),
   saveProject: (options) => ipcRenderer.invoke('project:save', options),
   importImages: () => ipcRenderer.invoke('images:import'),
