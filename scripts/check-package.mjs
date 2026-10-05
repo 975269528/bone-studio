@@ -9,9 +9,10 @@ import JSZip from 'jszip';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { checkPackageContent } from './check-package-content.mjs';
+import { removePackageTestDirectory, stopPortableProcess } from './check-package-cleanup.mjs';
 import { checkPackagedMcpConfiguration, checkCopiedMcpRestart, saveHiddenScreenshot } from './check-packaged-mcp.mjs';
 const executeFile = promisify(execFile);
-const regression = await executeFile(process.execPath, ['--test', path.resolve('scripts/check-packaged-clipboard.mjs')], { windowsHide: true, timeout: 15000 });
+const regression = await executeFile(process.execPath, ['--test', path.resolve('scripts/check-packaged-clipboard.mjs'), path.resolve('scripts/check-package-cleanup-regression.mjs')], { windowsHide: true, timeout: 15000 });
 console.log(regression.stdout.trim());
 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'bone-studio-package-test-'));
 const artifacts = path.resolve('output/package-check');
@@ -175,6 +176,7 @@ async function checkPortableLauncher({ isSmoke = false } = {}) {
   const env = { ...process.env, BONE_STUDIO_DEV_URL: 'http://127.0.0.1:5173', BONE_STUDIO_USER_DATA: profile, BONE_STUDIO_HIDDEN: '1' };
   delete env.ELECTRON_RUN_AS_NODE;
   const child = spawn(executablePath, [], { cwd: directory, env, windowsHide: true, stdio: 'ignore' });
+  const closed = new Promise(resolve => child.once('close', resolve));
   const launched = new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
   const client = new Client({ name: 'bone-studio-portable-check', version: '1.0.0' });
   let failure;
@@ -188,11 +190,8 @@ async function checkPortableLauncher({ isSmoke = false } = {}) {
     const checks = isSmoke ? 'renamed portable EXE; isolated MCP PNG preview; no console process; ASAR local-load guard' : 'real portable EXE; MCP batch/undo/preview/export/save; local loading verified by ASAR guard plus packaged file URL';
     console.log(JSON.stringify({ portableLauncher: executablePath, processNames: tree.map(item => item.Name), checks }, null, 2));
   } catch (error) { failure = error; }
-  try { await client.close(); } catch (error) { failure ??= error; }
-  if (child.exitCode === null && child.pid) {
-    try { await executeFile('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, timeout: 15000 }); }
-    catch (error) { failure ??= error; }
-  }
+  const cleanup = await Promise.allSettled([client.close(), stopPortableProcess({ child, closed, executeFile })]);
+  failure ??= cleanup.find(result => result.status === 'rejected')?.reason;
   if (failure) throw failure;
 }
 
@@ -222,6 +221,7 @@ async function checkInvalidProfile() {
   });
 }
 
+let failure;
 try {
   if (process.argv.includes('--portable-smoke')) {
     await fs.mkdir(artifacts, { recursive: true });
@@ -233,8 +233,7 @@ try {
     await checkCopiedMcpRestart({ directory, profile: path.dirname(connectionPath) });
     await checkPortableLauncher();
   }
-}
-finally {
-  assert.ok(directory.startsWith(path.join(os.tmpdir(), 'bone-studio-package-test-')));
-  await fs.rm(directory, { recursive: true, force: true });
-}
+} catch (error) { failure = error; }
+try { await removePackageTestDirectory({ directory }); }
+catch (error) { failure = failure ? new AggregateError([failure, error], 'Package verification and temporary directory cleanup both failed.') : error; }
+if (failure) throw failure;
