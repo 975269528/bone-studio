@@ -4,7 +4,7 @@
 
 ## 启动
 
-Windows x64 用户可直接双击 `release/BoneStudio.exe`。便携版文件名固定，不含版本号，外部快捷方式无需随版本更新；应用内部保留版本信息。便携版包含 Electron 与运行依赖，无需安装 Node.js、运行 CMD 或保持控制台窗口；首次启动会解压到临时目录。项目文件仍保存到你选择的位置，编辑器设置和 AI 连接信息默认位于 `%APPDATA%\BoneStudio`。当前产物未签名。
+Windows x64 用户可在 [GitHub Releases](https://github.com/975269528/bone-studio/releases) 下载，或使用 [最新 BoneStudio.exe 下载链接](https://github.com/975269528/bone-studio/releases/latest/download/BoneStudio.exe)，下载后直接双击启动。本地构建文件位于 `release/BoneStudio.exe`。便携版文件名固定，不含版本号，外部快捷方式无需随版本更新；应用内部保留版本信息。便携版包含 Electron 与运行依赖，无需安装 Node.js、运行 CMD 或保持控制台窗口；首次启动会解压到临时目录。项目文件仍保存到你选择的位置，编辑器设置和 AI 连接信息默认位于 `%APPDATA%\BoneStudio`。当前产物未签名。
 
 从源码开发：Node.js 22.12+，npm，Windows / macOS / Linux 的 Electron 桌面环境。项目锁文件固定依赖；首次安装或打包需要联网下载依赖、Electron 和打包工具。
 
@@ -40,7 +40,9 @@ npm run test:package
 
 提交源码、`package-lock.json` 与构建配置即可；`release/`、开发依赖、输出目录和个人参考图由 `.gitignore` 排除。不要提交真实 `.env` 或包含本地令牌的 `ai-connection.json`。本地打包不代表已经创建或上传 GitHub 仓库。
 
-`.github/workflows/windows-build.yml` 在手动运行、推送 `main` / `master` 和拉取请求时检查、构建 Windows x64 便携 EXE，并保留 Actions 构建产物；不自动创建 Release 或发布应用。上传到 GitHub 后，可以在 Actions 中下载 `BoneStudio-windows-x64` 产物。许可证尚待项目所有者选定。
+`.github/workflows/windows-build.yml` 在手动运行、推送 `main` / `master` 和拉取请求时检查、构建 Windows x64 便携 EXE。推送 `main` / `master` 或在这两个分支手动运行时，全部检查和真实 EXE 验收通过后，自动发布 [GitHub Release](https://github.com/975269528/bone-studio/releases)，附件固定为 `BoneStudio.exe`，不再上传 Actions 下载产物。拉取请求和其它分支的手动运行只构建、校验，不发布，也没有仓库写权限。
+
+Release 标签使用 `v<应用版本>-build.<运行序号>.<重试次数>`，准确关联本次构建提交；即使应用版本未变或重新运行，也不会覆盖旧 Release。上传和附件大小校验在草稿中完成，成功后才公开并标为 Latest；失败时运行明确报错，可能留下供排查的草稿。Release 说明包含源码提交、构建记录和 EXE 的 SHA-256。[最新 EXE 下载地址](https://github.com/975269528/bone-studio/releases/latest/download/BoneStudio.exe) 保持固定。许可证尚待项目所有者选定。
 
 ## 使用流程
 
