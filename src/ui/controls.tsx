@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import type { ProjectCommand } from '@/core/types';
-import { runCommand, updateEditor } from './store';
+import { getEditorState, runCommand, updateEditor } from './store';
+import { DELETE_SHORTCUT_EVENT, keyframeDeletionKey } from './delete-shortcut';
 import type { CommitOptions } from './store';
 import { useNumberScrub } from './use-number-scrub';
 import { modalFocusElements, trapModalFocus } from './modal-focus';
@@ -78,15 +79,40 @@ export function Modal(props: { title: string; children: ReactNode; onClose: () =
   </div>;
 }
 
-/** Confirm document deletions using the editor's common deletion dialog. */
+function useImmediateDeletion(command: ProjectCommand) {
+  const button = useRef<HTMLButtonElement>(null); const currentCommand = useRef(command); currentCommand.current = command;
+  useEffect(() => {
+    const element = button.current;
+    const handleDeletion = () => { updateEditor({ isPlaying: false }); runCommand(currentCommand.current); };
+    element?.addEventListener(DELETE_SHORTCUT_EVENT, handleDeletion);
+    return () => element?.removeEventListener(DELETE_SHORTCUT_EVENT, handleDeletion);
+  }, []);
+  return button;
+}
+
+/** Delete immediately via Del, or confirm mouse clicks using the common deletion dialog. */
 export function DeleteButton(props: { command: ProjectCommand; label: string; detail?: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-  return <><button className="danger-button" onClick={() => setIsOpen(true)}><Trash2 size={14} />{props.label}</button>
-    {isOpen && <Modal title={props.label} onClose={() => setIsOpen(false)}>
-      <p className="modal-copy">{props.detail ?? '删除后可以使用撤销恢复。是否继续？'}</p>
-      <footer><button onClick={() => setIsOpen(false)}>取消</button><button className="danger-solid" onClick={() => {
-        runCommand(props.command); setIsOpen(false);
-      }}>确认删除</button></footer>
+  const button = useImmediateDeletion(props.command);
+  const [pending, setPending] = useState<(typeof props & { documentId: string; revision: number }) | null>(null);
+  const handleOpen = () => {
+    const { documentId, revision } = getEditorState();
+    if (!document.querySelector('[role="dialog"],dialog[open]')) {
+      updateEditor({ isPlaying: false }); setPending({ ...props, documentId, revision });
+    }
+  };
+  const handleConfirm = () => {
+    if (!pending) return;
+    const state = getEditorState();
+    if (state.documentId !== pending.documentId || state.revision !== pending.revision) {
+      updateEditor({ message: '文档已有其他改动，请重新选择对象并确认删除。' });
+    } else runCommand(pending.command);
+    setPending(null);
+  };
+  return <><button ref={button} className="danger-button" data-delete-kind={props.command.type} data-delete-key={keyframeDeletionKey(props.command)}
+    aria-keyshortcuts="Delete" title={`${props.label} · Del`} onClick={handleOpen}><Trash2 size={14} />{props.label}</button>
+    {pending && <Modal title={pending.label} onClose={() => setPending(null)}>
+      <p className="modal-copy">{pending.detail ?? '删除后可以使用撤销恢复。是否继续？'}</p>
+      <footer><button onClick={() => setPending(null)}>取消</button><button className="danger-solid" onClick={handleConfirm}>确认删除</button></footer>
     </Modal>}
   </>;
 }

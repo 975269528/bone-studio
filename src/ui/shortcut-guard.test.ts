@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { isEditableShortcutTarget, isModeShortcut } from './shortcut-guard';
+import { isDeletionShortcut, isEditableShortcutTarget, isModeShortcut } from './shortcut-guard';
 
 const modeKey = { key: 'q', ctrlKey: false, metaKey: false, altKey: false, isComposing: false, repeat: false };
 const canvasContext = { hasDialog: false, hasEditableTarget: false };
@@ -32,4 +32,18 @@ it('recognizes native controls and nested editable descendants without blocking 
   expect(isEditableShortcutTarget(nestedEditable)).toBe(true);
   expect(isEditableShortcutTarget(new EditableTarget(false))).toBe(false);
   expect(isEditableShortcutTarget(null)).toBe(false);
+});
+
+it('allows Del only once in an idle, unmodified editor context', () => {
+  const event = { ...modeKey, key: 'Delete', shiftKey: false, keyCode: 46 };
+  const context = { ...canvasContext, hasMenu: false, hasGesture: false };
+  expect(isDeletionShortcut(event, context)).toBe(true);
+  expect(isDeletionShortcut({ ...event, key: 'Backspace' }, context)).toBe(false);
+  expect(isDeletionShortcut({ ...event, keyCode: 229 }, context)).toBe(false);
+  for (const key of ['ctrlKey', 'metaKey', 'altKey', 'shiftKey', 'repeat', 'isComposing'] as const) {
+    expect(isDeletionShortcut({ ...event, [key]: true }, context)).toBe(false);
+  }
+  for (const key of ['hasDialog', 'hasEditableTarget', 'hasMenu', 'hasGesture'] as const) {
+    expect(isDeletionShortcut(event, { ...context, [key]: true })).toBe(false);
+  }
 });

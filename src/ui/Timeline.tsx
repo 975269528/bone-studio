@@ -11,6 +11,7 @@ import { setEditorMode } from './editor-modes';
 import { TimelineRuler } from './TimelineRuler';
 import { TimelineResize } from './TimelineResize';
 import { seekTimeline, TIMELINE_LAYOUT } from './timeline-layout';
+import { keyframeDeletionKey } from './delete-shortcut';
 import './timeline-layout.css';
 
 function usePlayback() {
@@ -72,6 +73,7 @@ function TimelineRow(props: { bone: Bone; duration: number }) {
   return <div className={`timeline-row ${state.selection?.id === props.bone.id ? 'selected' : ''}`}>
     <button className="track-name" onClick={() => updateEditor({ selection: { kind: 'bone', id: props.bone.id } })}><Diamond size={10} />{props.bone.name}</button>
     <div className="track-line">{track?.keyframes.map(keyframe => <button key={keyframe.time} className={`key-diamond ${Math.abs(state.time - keyframe.time) < 0.01 ? 'current' : ''}`}
+      data-keyframe-delete={keyframeDeletionKey({ type: 'keyframe.remove', animationId: animation!.id, boneId: props.bone.id, time: keyframe.time })} aria-keyshortcuts="Delete"
       style={{ left: `${keyframe.time / props.duration * 100}%` }} aria-label={`${props.bone.name} ${keyframe.time.toFixed(2)} 秒关键帧`}
       onClick={() => updateEditor({ time: keyframe.time, isPlaying: false, selection: { kind: 'bone', id: props.bone.id } })} />)}</div>
   </div>;
@@ -91,6 +93,7 @@ function TimelineTracks() {
       {state.project.bones.map(bone => <TimelineRow key={bone.id} bone={bone} duration={animation.duration} />)}
       {state.project.ikConstraints.filter(constraint => !constraint.animationId || constraint.animationId === animation.id).map(constraint => <div className="timeline-row" key={constraint.id}>
         <button className="track-name orange" onClick={() => updateEditor({ selection: { kind: 'ik', id: constraint.id } })}>⊕ {constraint.name}</button><div className="track-line">{constraint.targetKeys.map(keyframe => <button className="key-diamond ik-key" key={keyframe.time}
+          data-keyframe-delete={keyframeDeletionKey({ type: 'ik.keyframe.remove', constraintId: constraint.id, time: keyframe.time })} aria-keyshortcuts="Delete"
           style={{ left: `${keyframe.time / animation.duration * 100}%` }} aria-label={`${constraint.name} ${keyframe.time}秒目标帧`} onClick={() => updateEditor({ time: keyframe.time, isPlaying: false, selection: { kind: 'ik', id: constraint.id } })} />)}</div></div>)}
     </div><div className="playhead" style={{ left: `calc(150px + (100% - 174px - var(--track-gutter)) * ${state.time / animation.duration})` }} /></div>
     <div className="scrubber"><span><output>{state.time.toFixed(2)} s</output><small>拖动定位</small></span><div className="scrubber-range"><input aria-label="时间轴定位" type="range" min={0} max={animation.duration} step="any" value={state.time}

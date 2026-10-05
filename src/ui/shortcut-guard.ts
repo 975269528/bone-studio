@@ -1,6 +1,13 @@
 interface ShortcutContext { hasDialog: boolean; hasEditableTarget: boolean }
 type ModeKeyEvent = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'isComposing' | 'repeat'>;
 
+/** Accept Del only in an idle editor context, without modifiers, composition or held-key repeats. */
+export function isDeletionShortcut(event: ModeKeyEvent & { keyCode?: number; shiftKey?: boolean }, context: ShortcutContext & { hasMenu: boolean; hasGesture: boolean }): boolean {
+  return event.key === 'Delete' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
+    && !event.isComposing && event.keyCode !== 229 && !event.repeat && !context.hasDialog
+    && !context.hasEditableTarget && !context.hasMenu && !context.hasGesture;
+}
+
 /** Check mode hotkeys without capturing typing, composition, dialogs or modified key presses. */
 export function isModeShortcut(event: ModeKeyEvent, context: ShortcutContext): boolean {
   return event.key.toLowerCase() === 'q' && !event.ctrlKey && !event.metaKey && !event.altKey
