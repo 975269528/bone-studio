@@ -1,25 +1,37 @@
 import { createDemoProject, createEmptyProject } from '@/core/api';
 import { downloadFile } from './files';
-import { getEditorState, replaceProject, reportError, updateEditor } from './store';
+import { getDocumentSessionReady, getEditorState, replaceProject, reportError, updateEditor } from './store';
 
-/** Save the current document using a native desktop dialog when available. */
-export async function saveProject(): Promise<void> {
+/** Save to the authorized desktop path; saveAs explicitly asks for a new destination. */
+export async function saveProject(options?: { saveAs?: boolean }): Promise<void> {
   if (getEditorState().isSaving) return;
   const state = getEditorState(); const serialized = JSON.stringify(state.project, null, 2);
   updateEditor({ isSaving: true });
   try {
     if (window.boneStudio) {
-      const path = await window.boneStudio.saveFile({ suggestedName: `${state.project.name}.bonestudio.json`, data: serialized, encoding: 'utf8', filters: [{ name: 'Bone Studio 项目', extensions: ['json'] }] });
+      await getDocumentSessionReady();
+      if (state.documentId !== getEditorState().documentId) return;
+      const path = await window.boneStudio.saveProject({ documentId: state.documentId, suggestedName: `${state.project.name}.bonestudio.json`, data: serialized, saveAs: options?.saveAs });
       if (!path) return;
+      if (state.documentId !== getEditorState().documentId) return;
+      updateEditor({ documentPath: path });
     } else downloadFile({ data: serialized, name: `${state.project.name}.bonestudio.json`, type: 'application/json' });
+    if (state.documentId !== getEditorState().documentId) return;
     updateEditor({ isDirty: state.revision !== getEditorState().revision, message: '项目已保存' });
-  } catch (error) { reportError(error); } finally { updateEditor({ isSaving: false }); }
+  } catch (error) { if (state.documentId === getEditorState().documentId) reportError(error); }
+  finally { if (state.documentId === getEditorState().documentId) updateEditor({ isSaving: false }); }
 }
 
 /** Open and validate a project chosen in the desktop file dialog. */
 export async function openDesktopProject(): Promise<void> {
-  try { const file = await window.boneStudio?.openProject(); if (file) replaceProject(JSON.parse(file.text) as unknown); }
-  catch (error) { reportError(error); }
+  const documentId = getEditorState().documentId;
+  try {
+    await getDocumentSessionReady();
+    if (documentId !== getEditorState().documentId) return;
+    const file = await window.boneStudio?.openProject({ documentId });
+    if (file && documentId === getEditorState().documentId) replaceProject(JSON.parse(file.text) as unknown, file);
+  }
+  catch (error) { if (documentId === getEditorState().documentId) reportError(error); }
 }
 
 /** Start a new empty document after the caller has handled unsaved changes. */

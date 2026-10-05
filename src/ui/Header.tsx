@@ -22,11 +22,11 @@ export function Header() {
     setPending(null);
   };
   return <header className="app-header"><div className="brand"><div className="brand-mark"><Bone size={21} /></div><span>BONE<span className="brand-light">STUDIO</span><small>2D ANIMATION WORKSPACE</small></span></div>
-    <div className="header-separator" /><div className="project-title"><span className="breadcrumb">工作区 <ChevronRight size={11} /> 动画项目</span><strong>{state.project.name}{state.isDirty && <i className="dirty-dot" title="未保存的修改" />}</strong></div>
+    <div className="header-separator" /><div className="project-title" title={state.documentPath ?? '尚未选择保存位置'}><span className="breadcrumb">工作区 <ChevronRight size={11} /> 动画项目</span><strong>{state.project.name}{state.isDirty && <i className="dirty-dot" title="未保存的修改" />}</strong></div>
     <div className="header-actions"><span className="bridge-status"><Radio size={12} />{window.boneStudio ? '本地接口已就绪' : '浏览器预览'}</span>
       <button className="icon-button" aria-label="撤销" title="撤销 Ctrl+Z" disabled={!state.past.length} onClick={undo}><Undo2 size={16} /></button><button className="icon-button" aria-label="重做" title="重做 Ctrl+Shift+Z" disabled={!state.future.length} onClick={redo}><Redo2 size={16} /></button>
       <span className="header-separator small" /><button aria-label="新建项目" className="icon-button" title="新建项目 / 加载示例人物" onClick={() => setIsNewOpen(true)}><Plus size={17} /></button><button onClick={() => handleAction('open')}><FolderOpen size={15} />打开</button><button disabled={state.isSaving} onClick={() => { void saveProject(); }}><Save size={15} />{state.isSaving ? '保存中…' : '保存'}</button>
-      <button className="primary" disabled={!state.animationId} onClick={() => setIsExportOpen(true)}><Download size={15} />导出动画</button></div>
+      <button className="icon-button" aria-label="另存为" title="另存为 Ctrl+Shift+S" disabled={state.isSaving} onClick={() => { void saveProject({ saveAs: true }); }}><Save size={15} /><Plus size={10} /></button><button className="primary" disabled={!state.animationId} onClick={() => setIsExportOpen(true)}><Download size={15} />导出动画</button></div>
     <input ref={input} type="file" accept=".json" hidden onChange={event => {
       const file = event.target.files?.[0]; if (file) void file.text().then(text => replaceProject(JSON.parse(text) as unknown)).catch(reportError);
       event.target.value = '';

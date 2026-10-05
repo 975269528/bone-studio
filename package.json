@@ -10,7 +10,7 @@
     "build": "npm run build:mcp && tsc --noEmit && vite build",
     "build:mcp": "vite build --config vite.mcp.config.ts",
     "test": "vitest run",
-    "test:bridge": "npm run build:mcp && node scripts/check-mcp.mjs && node scripts/check-session.mjs",
+    "test:bridge": "npm run build:mcp && node scripts/check-mcp.mjs && node scripts/check-session.mjs && node scripts/check-project-dialogs.mjs",
     "lint": "eslint .",
     "start": "electron .",
     "mcp": "node electron/mcp.cjs"

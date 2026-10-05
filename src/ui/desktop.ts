@@ -17,10 +17,26 @@ export interface SaveFileOptions {
   filters?: { name: string; extensions: string[] }[];
 }
 
+export interface SaveProjectOptions {
+  documentId: string;
+  suggestedName: string;
+  data: string;
+  saveAs?: boolean;
+}
+
+export interface DesktopProjectFile {
+  name: string;
+  text: string;
+  path: string;
+  openToken: string;
+}
+
 declare global {
   interface Window {
     boneStudio?: {
-      openProject(): Promise<{ name: string; text: string } | null>;
+      openProject(options: { documentId: string }): Promise<DesktopProjectFile | null>;
+      setProjectSession(options: { documentId: string; openToken?: string }): Promise<void>;
+      saveProject(options: SaveProjectOptions): Promise<string | null>;
       importImages(): Promise<import('@/core/types').Asset[]>;
       saveFile(options: SaveFileOptions): Promise<string | null>;
       exportFile(options: SaveFileOptions): Promise<string | null>;

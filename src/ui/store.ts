@@ -7,6 +7,8 @@ export type CanvasTool = 'select' | 'rig' | 'draw' | 'rotate' | 'scale' | 'lengt
 export interface CommitOptions { coalesce?: boolean }
 export interface EditorState {
   project: Project;
+  documentId: string;
+  documentPath: string | null;
   revision: number;
   selection: Selection;
   animationId: string | null;
@@ -27,12 +29,35 @@ export interface EditorState {
 
 const initialProject = createDemoProject();
 let state: EditorState = {
-  project: initialProject, revision: 0, selection: null,
+  project: initialProject, documentId: crypto.randomUUID(), documentPath: null, revision: 0, selection: null,
   animationId: initialProject.animations[0]?.id ?? null, time: 0, isPlaying: false,
   showBones: true, zoom: 0.85, pan: { x: 0, y: 0 }, tool: 'select', keepImages: true, past: [], future: [], message: '', messageVersion: 0, isDirty: false, isSaving: false,
 };
 const listeners = new Set<() => void>();
 const HISTORY_LIMIT = 80;
+let desktopDocumentId: string | null = null;
+let desktopOpenToken: string | undefined;
+let desktopSessionReady: Promise<void> = Promise.resolve();
+
+/** Await native authorization for the active document without granting renderer paths. */
+export function getDocumentSessionReady(): Promise<void> {
+  if (typeof window !== 'undefined' && window.boneStudio && desktopDocumentId !== state.documentId) synchronizeDocument(desktopOpenToken);
+  return desktopSessionReady;
+}
+
+function synchronizeDocument(openToken?: string): void {
+  desktopOpenToken = openToken;
+  if (typeof window === 'undefined' || !window.boneStudio) return;
+  const documentId = state.documentId;
+  desktopDocumentId = documentId;
+  desktopSessionReady = window.boneStudio.setProjectSession({ documentId, openToken }).then(() => {
+    if (desktopDocumentId === documentId) desktopOpenToken = undefined;
+  }).catch((error: unknown) => {
+    if (desktopDocumentId === documentId) desktopDocumentId = null;
+    throw error;
+  });
+  void desktopSessionReady.catch((error: unknown) => { if (state.documentId === documentId) reportError(error); });
+}
 
 /** Read the canonical document shared by editor actions and external automation. */
 export function getEditorState(): EditorState { return state; }
@@ -71,11 +96,12 @@ export function runCommand(command: ProjectCommand, options?: CommitOptions): vo
 }
 
 /** Replace the current project after validating imported JSON. */
-export function replaceProject(project: unknown): void {
+export function replaceProject(project: unknown, file?: { path: string; openToken: string }): void {
   const valid = parseProject(project);
-  updateEditor({ project: valid, revision: state.revision + 1, past: [], future: [],
+  updateEditor({ project: valid, documentId: crypto.randomUUID(), documentPath: file?.path ?? null, revision: state.revision + 1, past: [], future: [],
     selection: null, animationId: valid.animations[0]?.id ?? null, tool: valid.animations.length ? 'select' : 'rig', time: 0, isPlaying: false,
-    isDirty: false, message: '项目已打开' });
+    isDirty: false, isSaving: false, message: '项目已打开' });
+  synchronizeDocument(file?.openToken);
 }
 
 /** Restore the preceding document snapshot while retaining monotonic revision numbers. */

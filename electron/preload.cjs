@@ -1,7 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('boneStudio', {
-  openProject: () => ipcRenderer.invoke('project:open'),
+  openProject: (options) => ipcRenderer.invoke('project:open', options),
+  setProjectSession: (options) => ipcRenderer.invoke('project:session', options),
+  saveProject: (options) => ipcRenderer.invoke('project:save', options),
   importImages: () => ipcRenderer.invoke('images:import'),
   saveFile: (options) => ipcRenderer.invoke('file:save', options),
   exportFile: (options) => ipcRenderer.invoke('file:save', options),

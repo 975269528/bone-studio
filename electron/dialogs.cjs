@@ -1,6 +1,7 @@
 const { dialog } = require('electron');
 const { z } = require('zod');
 const { importAssets, readProject, writeOutput } = require('./files.cjs');
+const { createProjectFiles } = require('./project-files.cjs');
 const saveSchema = z.object({
   suggestedName: z.string().min(1).max(200),
   data: z.string().max(360000000),
@@ -10,13 +11,21 @@ const saveSchema = z.object({
 
 /** Register dialog-only filesystem capabilities for the trusted editor window. */
 function registerDialogs(window, ipcMain) {
+  const projects = createProjectFiles({ window, dialog, readProject, writeOutput });
   const assertSender = (event) => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw new Error('无权访问桌面文件接口。');
   };
-  ipcMain.handle('project:open', async (event) => {
+  ipcMain.handle('project:session', (event, input) => {
     assertSender(event);
-    const result = await dialog.showOpenDialog(window, { title: '打开骨骼项目', properties: ['openFile'], filters: [{ name: '骨骼项目', extensions: ['json'] }] });
-    return result.canceled ? null : readProject(result.filePaths[0]);
+    projects.setSession(input);
+  });
+  ipcMain.handle('project:open', (event, input) => {
+    assertSender(event);
+    return projects.open(input);
+  });
+  ipcMain.handle('project:save', (event, input) => {
+    assertSender(event);
+    return projects.save(input);
   });
   ipcMain.handle('images:import', async (event) => {
     assertSender(event);
