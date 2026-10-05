@@ -13,8 +13,7 @@ import { checkPackagedMcpConfiguration, checkCopiedMcpRestart, saveHiddenScreens
 const executeFile = promisify(execFile);
 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'bone-studio-package-test-'));
 const artifacts = path.resolve('output/package-check');
-const metadata = JSON.parse(await fs.readFile('package.json', 'utf8'));
-const executablePath = path.resolve(`release/BoneStudio-${metadata.version}-win-x64-portable.exe`);
+const executablePath = path.resolve('release/BoneStudio.exe');
 const connectionPath = path.join(directory, 'profile', 'ai-connection.json');
 
 /** Call the existing source MCP adapter against only the isolated packaged editor. */
@@ -168,7 +167,7 @@ async function waitForConnection(filePath) {
 }
 
 /** Verify the portable launcher without inspector flags, using its independent MCP connection. */
-async function checkPortableLauncher() {
+async function checkPortableLauncher({ isSmoke = false } = {}) {
   const profile = path.join(directory, 'portable-profile');
   const connection = path.join(profile, 'ai-connection.json');
   const env = { ...process.env, BONE_STUDIO_DEV_URL: 'http://127.0.0.1:5173', BONE_STUDIO_USER_DATA: profile, BONE_STUDIO_HIDDEN: '1' };
@@ -179,12 +178,13 @@ async function checkPortableLauncher() {
   let failure;
   try {
     await launched;
-    const fixtures = await createFixtures();
     await waitForConnection(connection);
     await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('electron/mcp.cjs')], env: { ...process.env, BONE_STUDIO_CONNECTION: connection } }));
-    await checkMcpFiles({ client, fixtures });
+    if (isSmoke) await checkPortablePreview(client);
+    else await checkMcpFiles({ client, fixtures: await createFixtures() });
     const tree = await checkProcessTree(child.pid);
-    console.log(JSON.stringify({ portableLauncher: executablePath, processNames: tree.map(item => item.Name), checks: 'real portable EXE; MCP batch/undo/preview/export/save; local loading verified by ASAR guard plus packaged file URL' }, null, 2));
+    const checks = isSmoke ? 'renamed portable EXE; isolated MCP PNG preview; no console process; ASAR local-load guard' : 'real portable EXE; MCP batch/undo/preview/export/save; local loading verified by ASAR guard plus packaged file URL';
+    console.log(JSON.stringify({ portableLauncher: executablePath, processNames: tree.map(item => item.Name), checks }, null, 2));
   } catch (error) { failure = error; }
   try { await client.close(); } catch (error) { failure ??= error; }
   if (child.exitCode === null && child.pid) {
@@ -192,6 +192,20 @@ async function checkPortableLauncher() {
     catch (error) { failure ??= error; }
   }
   if (failure) throw failure;
+}
+
+/** Check the renamed portable through direct PNG output without GUI or clipboard interactions. */
+async function checkPortablePreview(client) {
+  const result = await client.callTool({ name: 'render_preview', arguments: {} });
+  assert.ok(!result.isError);
+  const image = result.content.find(item => item.type === 'image');
+  assert.equal(image?.mimeType, 'image/png');
+  const png = Buffer.from(image.data, 'base64');
+  assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  const metadata = JSON.parse(result.content.find(item => item.type === 'text').text);
+  assert.equal(png.readUInt32BE(16), metadata.width);
+  assert.equal(png.readUInt32BE(20), metadata.height);
+  await fs.writeFile(path.join(artifacts, 'portable-preview.png'), png);
 }
 
 /** Invalid storage overrides must exit explicitly before adopting any existing profile. */
@@ -206,7 +220,18 @@ async function checkInvalidProfile() {
   });
 }
 
-try { await checkInvalidProfile(); await checkPackagedEditor(); await checkCopiedMcpRestart({ directory, profile: path.dirname(connectionPath) }); await checkPortableLauncher(); }
+try {
+  if (process.argv.includes('--portable-smoke')) {
+    await fs.mkdir(artifacts, { recursive: true });
+    console.log(JSON.stringify(await checkPackageContent(executablePath)));
+    await checkPortableLauncher({ isSmoke: true });
+  } else {
+    await checkInvalidProfile();
+    await checkPackagedEditor();
+    await checkCopiedMcpRestart({ directory, profile: path.dirname(connectionPath) });
+    await checkPortableLauncher();
+  }
+}
 finally {
   assert.ok(directory.startsWith(path.join(os.tmpdir(), 'bone-studio-package-test-')));
   await fs.rm(directory, { recursive: true, force: true });

@@ -28,6 +28,6 @@ jobs:
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: BoneStudio-windows-x64
-          path: release/BoneStudio-*-win-x64-portable.exe
+          path: release/BoneStudio.exe
           if-no-files-found: error
           retention-days: 14

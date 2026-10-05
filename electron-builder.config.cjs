@@ -11,7 +11,7 @@ module.exports = {
     signExecutable: false,
   },
   portable: {
-    artifactName: 'BoneStudio-${version}-win-${arch}-portable.${ext}',
+    artifactName: 'BoneStudio.${ext}',
     requestExecutionLevel: 'user',
   },
 };

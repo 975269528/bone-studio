@@ -4,7 +4,7 @@
 
 ## 启动
 
-Windows x64 用户可直接双击 `release/BoneStudio-0.1.0-win-x64-portable.exe`。便携版包含 Electron 与运行依赖，无需安装 Node.js、运行 CMD 或保持控制台窗口；首次启动会解压到临时目录。项目文件仍保存到你选择的位置，编辑器设置和 AI 连接信息默认位于 `%APPDATA%\BoneStudio`。当前产物未签名。
+Windows x64 用户可直接双击 `release/BoneStudio.exe`。便携版文件名固定，不含版本号，外部快捷方式无需随版本更新；应用内部保留版本信息。便携版包含 Electron 与运行依赖，无需安装 Node.js、运行 CMD 或保持控制台窗口；首次启动会解压到临时目录。项目文件仍保存到你选择的位置，编辑器设置和 AI 连接信息默认位于 `%APPDATA%\BoneStudio`。当前产物未签名。
 
 从源码开发：Node.js 22.12+，npm，Windows / macOS / Linux 的 Electron 桌面环境。项目锁文件固定依赖；首次安装或打包需要联网下载依赖、Electron 和打包工具。
 
