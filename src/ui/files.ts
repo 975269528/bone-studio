@@ -1,5 +1,9 @@
 import type { Asset } from '@/core/types';
 
+const MAX_IMAGE_BYTES = 18_000_000;
+const MAX_IMPORT_BYTES = 36_000_000;
+const MAX_IMAGE_SIDE = 8192;
+
 /** Download a locally generated artifact without sending its contents to a server. */
 export function downloadFile(options: { data: BlobPart; name: string; type: string }): void {
   const url = URL.createObjectURL(new Blob([options.data], { type: options.type }));
@@ -16,11 +20,16 @@ export function downloadBase64(options: { base64: string; fileName: string; mime
   downloadFile({ data: bytes, name: options.fileName, type: options.mimeType });
 }
 
+/** Validate the batch size before reading files; return all assets or reject the batch. */
+export async function readImages(files: readonly File[]): Promise<Asset[]> {
+  const totalBytes = files.reduce((total, file) => total + file.size, 0);
+  if (totalBytes > MAX_IMPORT_BYTES) throw new Error('单次导入图片总大小超过 36 MB 限制。');
+  return Promise.all(files.map(readImage));
+}
+
 /** Load an image file as a self-contained asset with its natural dimensions. */
 export async function readImage(file: File): Promise<Asset> {
   if (!['image/png', 'image/webp', 'image/jpeg'].includes(file.type)) throw new Error('请选择 PNG、WebP 或 JPEG 图片。');
-  const MAX_IMAGE_BYTES = 18_000_000;
-  const MAX_IMAGE_SIDE = 8192;
   if (file.size > MAX_IMAGE_BYTES) throw new Error('单张图片不能超过 18 MB。');
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();

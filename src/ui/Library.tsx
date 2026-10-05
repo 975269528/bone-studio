@@ -3,7 +3,7 @@ import { Bone, Image, Plus, Crosshair, Layers, Crop, Upload, Pencil } from 'luci
 import type { Asset } from '@/core/types';
 import { AddObject } from './AddObject';
 import { AssetCrop } from './AssetCrop';
-import { readImage } from './files';
+import { readImages } from './files';
 import { applyCommands, getEditorState, reportError, updateEditor, useEditor } from './store';
 import type { Selection } from './store';
 import { LibraryTree } from './LibraryTree';
@@ -42,7 +42,7 @@ export function Library() {
   useEffect(() => { const handleDragHover = () => setTab('bones'); document.addEventListener(LIBRARY_DRAG_HOVER, handleDragHover);
     return () => document.removeEventListener(LIBRARY_DRAG_HOVER, handleDragHover); }, []);
   const handleImport = async (files?: FileList | null) => {
-    try { const assets = files ? await Promise.all(Array.from(files).map(readImage)) : await window.boneStudio?.importImages();
+    try { const assets = files ? await readImages(Array.from(files)) : await window.boneStudio?.importImages();
       if (assets?.length) { applyCommands(assets.map(asset => ({ type: 'asset.add', asset }))); setTab('assets'); updateEditor({ message: `已导入 ${assets.length} 张图片` }); }
     } catch (error) { reportError(error); }
     if (input.current) input.current.value = '';
