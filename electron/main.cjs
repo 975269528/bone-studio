@@ -1,10 +1,29 @@
 const path = require('node:path');
+const fs = require('node:fs');
 const { app, BrowserWindow, ipcMain, session, dialog } = require('electron');
 const { createBroker } = require('./broker.cjs');
 const { registerDialogs } = require('./dialogs.cjs');
+const { registerMcpConfiguration } = require('./mcp-configuration.cjs');
 const { startSession } = require('./session.cjs');
 app.setName('BoneStudio');
-const isDevelopment = process.env.BONE_STUDIO_DEV_URL === 'http://127.0.0.1:5173';
+
+/** Isolate editor storage and its single-instance lock when an absolute profile is supplied. */
+function configureUserData() {
+  const directory = process.env.BONE_STUDIO_USER_DATA;
+  if (!directory) return;
+  if (!path.isAbsolute(directory)) throw new Error('BONE_STUDIO_USER_DATA 必须是绝对目录路径。');
+  fs.mkdirSync(directory, { recursive: true });
+  app.setPath('userData', directory);
+  app.setPath('sessionData', directory);
+}
+try { configureUserData(); }
+catch (error) {
+  const message = error.code ? `配置数据目录失败（${error.code}）。` : error.message;
+  if (process.env.BONE_STUDIO_HIDDEN === '1') console.error(message);
+  else dialog.showErrorBox('BoneStudio 启动失败', message);
+  app.exit(1);
+}
+const isDevelopment = !app.isPackaged && process.env.BONE_STUDIO_DEV_URL === 'http://127.0.0.1:5173';
 const debugPort = Number(process.env.BONE_STUDIO_DEBUG_PORT);
 if (isDevelopment && Number.isInteger(debugPort) && debugPort >= 1024 && debugPort <= 65535) {
   app.commandLine.appendSwitch('remote-debugging-port', String(debugPort));
@@ -28,6 +47,7 @@ function secureSession() {
 async function createWindow() {
   secureSession();
   const window = new BrowserWindow({
+    show: process.env.BONE_STUDIO_HIDDEN !== '1',
     width: 1600, height: 1000, minWidth: 1100, minHeight: 720,
     title: 'BoneStudio · 2D 骨骼动画', backgroundColor: '#12131b', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
@@ -39,6 +59,7 @@ async function createWindow() {
   });
   const broker = createBroker(window, ipcMain);
   registerDialogs(window, ipcMain);
+  registerMcpConfiguration(window, ipcMain);
   if (isDevelopment) await window.loadURL(process.env.BONE_STUDIO_DEV_URL);
   else await window.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   activeSession = await startSession({ broker, userData: app.getPath('userData') });

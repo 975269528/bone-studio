@@ -40,6 +40,7 @@ process.on('SIGINT', () => shutdown());
 process.on('SIGTERM', () => shutdown());
 try {
   await build({ configFile: 'vite.mcp.config.ts' });
+  await build({ configFile: 'vite.mcp-adapter.config.ts' });
   const viteExecutable = path.join(path.dirname(require.resolve('vite/package.json')), 'bin', 'vite.js');
   launch(process.execPath, [viteExecutable]);
   await waitForVite();

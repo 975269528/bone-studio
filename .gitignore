@@ -2,11 +2,15 @@ node_modules/
 dist/
 dist-electron/
 dist-mcp/
+release/
+out-data/
+风格参考2.png
 output/
 .playwright-cli/
 .env
 .env.local
 .env.*.local
+ai-connection.json
 !.env.example
 __pycache__/
 vendor/

@@ -4,10 +4,12 @@
 
 ## 启动
 
-环境：Node.js 22.12+（或 20.19+），npm，Windows / macOS / Linux 的 Electron 桌面环境。本项目锁文件按当前兼容版本固定依赖；首次安装或启动 Electron 时可能需要下载 Electron 二进制。
+Windows x64 用户可直接双击 `release/BoneStudio-0.1.0-win-x64-portable.exe`。便携版包含 Electron 与运行依赖，无需安装 Node.js、运行 CMD 或保持控制台窗口；首次启动会解压到临时目录。项目文件仍保存到你选择的位置，编辑器设置和 AI 连接信息默认位于 `%APPDATA%\BoneStudio`。当前产物未签名。
+
+从源码开发：Node.js 22.12+，npm，Windows / macOS / Linux 的 Electron 桌面环境。项目锁文件固定依赖；首次安装或打包需要联网下载依赖、Electron 和打包工具。
 
 ```powershell
-npm install
+npm ci
 npm run dev
 ```
 
@@ -20,9 +22,25 @@ npm run build
 npm start
 ```
 
-Windows 可在构建后双击 `start-bone-studio.cmd`，启动器使用自身所在目录，支持中文路径；缺少依赖或构建时会显示所需命令，不自动安装。这是首版源码与运行版，尚未制作安装器。
+Windows 便携 EXE 构建与验收：
+
+```powershell
+npm ci
+npm run package:win
+npm run test:package
+```
+
+产物输出到 `release/`；`package:win` 先构建界面与 MCP 校验模块，再生成 x64 便携版，不发布到网络。包内仅含 `dist/`、`dist-mcp/`、`electron/`、必要元数据和生产依赖，开发依赖、源码、个人参考图与导出文件不会进入应用包。`test:package` 启动真实 EXE，使用全新临时数据目录和隐藏窗口，检查本地界面、批量导入、保存/打开、MCP、预览与两种 ZIP 导出；截图保留在 `output/package-check/`。测试不会使用正在编辑的窗口或其连接信息。
+
+`start-bone-studio.cmd` 仍用于有开发依赖的源码构建版本；普通使用优先双击便携 EXE。
 
 检查：`npm run lint`、`npm test`、`npm run test:bridge`。`build` 同时生成界面和共用 MCP 命令校验模块；修改核心 schema 后重新运行 `build` 或重启 `dev`。`test:bridge` 验证 stdio 握手、工具列表、非法命令拒绝、本地认证边界与文件覆盖保护，不代替实际画面验收。
+
+## GitHub 源码准备
+
+提交源码、`package-lock.json` 与构建配置即可；`release/`、开发依赖、输出目录和个人参考图由 `.gitignore` 排除。不要提交真实 `.env` 或包含本地令牌的 `ai-connection.json`。本地打包不代表已经创建或上传 GitHub 仓库。
+
+`.github/workflows/windows-build.yml` 在手动运行、推送 `main` / `master` 和拉取请求时检查、构建 Windows x64 便携 EXE，并保留 Actions 构建产物；不自动创建 Release 或发布应用。上传到 GitHub 后，可以在 Actions 中下载 `BoneStudio-windows-x64` 产物。许可证尚待项目所有者选定。
 
 ## 使用流程
 
@@ -49,7 +67,11 @@ Del 直接删除，无需确认：在画布或骨骼树选中骨骼、图片部�
 
 ## 连接外部 AI
 
-先启动 BoneStudio 并保持编辑器窗口打开，再在支持 MCP stdio 的本地 AI 客户端中加入以下配置。`args` 使用本机绝对路径，不需要启动第二个编辑器。
+启动 BoneStudio，点击右上角「AI / MCP」，再点「复制 MCP 配置」，将 JSON 合并到支持 MCP stdio 的 Agent 客户端配置中，刷新或重启客户端即可接入。
+
+**仅 AI / MCP 接入需要安装 Node.js 22.12 或更高版本，并确保 `node` 命令可用；普通 EXE 编辑器使用不需要 Node.js。** 软件会把自包含适配器保存到当前用户的数据目录，收到 EXE 的用户无需源码、`npm install` 或 `node_modules`。复制内容只有启动命令、适配器路径和连接文件路径，不包含本地令牌。请保持编辑器打开；关掉再启动会恢复连接，无需重新复制。配置适用于当前电脑和用户，更改软件数据目录后重新复制。
+
+开发者也可继续使用源码中的适配器：先在源码目录执行 `npm ci`，再使用以下手工配置。`args` 使用本机绝对路径，不需要启动第二个编辑器。
 
 ```json
 {
@@ -62,7 +84,7 @@ Del 直接删除，无需确认：在画布或骨骼树选中骨骼、图片部�
 }
 ```
 
-桌面自动生成 `%APPDATA%\BoneStudio\ai-connection.json`（macOS 为 `~/Library/Application Support/BoneStudio/`，Linux 为 `~/.config/BoneStudio/`）。适配器每次调用读取此文件，因此桌面重启后可继续使用。自定义桌面 userData 或特殊运行环境时，在客户端 `env` 中设置 `BONE_STUDIO_CONNECTION` 为实际连接文件的绝对路径。`.env.example` 只展示路径格式；程序不自动加载 `.env`。
+桌面自动生成 `%APPDATA%\BoneStudio\ai-connection.json`（macOS 为 `~/Library/Application Support/BoneStudio/`，Linux 为 `~/.config/BoneStudio/`）。适配器每次调用读取此文件，因此桌面重启后可继续使用。可通过 `BONE_STUDIO_USER_DATA` 指定绝对数据目录；目录自动创建，浏览器缓存和单实例状态一起隔离。自定义目录或特殊运行环境时，在客户端 `env` 中设置 `BONE_STUDIO_CONNECTION` 为实际连接文件的绝对路径。`BONE_STUDIO_HIDDEN=1` 仅用于隐藏验收窗口，普通使用无需设置。`.env.example` 记录可选变量；程序不自动加载 `.env`。
 
 连接文件含随机本地令牌，勿提交或分享。服务只监听 `127.0.0.1` 动态端口，并校验 bearer token、Host 和 Origin；不提供任意代码执行或通用文件读取接口。桌面采用 context isolation、沙箱及禁用 Node 集成，适配器只访问显式指定的图片和输出路径。窗口关闭时，未完成请求失败，连接失效。每次编辑操作限时 90 秒，最多 16 个等待请求。
 
@@ -137,4 +159,4 @@ rotation 使用角度。bone.parentId 与 attachment.boneId 可为 null；scaleX
 }
 ```
 
-预览使用 `render_preview` 反复取样实际画面。导出示例：`{"animationId":"existing-animation-id","format":"sheet","fps":24,"outputPath":"D:\\Exports\\walk.zip"}`。
+Agent 可直接调用 `render_preview` 获取当前未保存项目的真实 PNG 效果图，按动作与时间反复取样，无需操作鼠标或截取窗口。编辑器进程须保持运行，窗口可在后台、最小化或隐藏；完全退出编辑器后，预览和编辑接口会断开。导出示例：`{"animationId":"existing-animation-id","format":"sheet","fps":24,"outputPath":"D:\\Exports\\walk.zip"}`。

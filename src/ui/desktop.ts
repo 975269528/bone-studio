@@ -31,9 +31,20 @@ export interface DesktopProjectFile {
   openToken: string;
 }
 
+/** Desktop-generated stdio configuration and the prerequisites for connecting an agent. */
+export interface McpConfiguration {
+  configuration: string;
+  requirements: string[];
+  executablePath?: string;
+}
+
 declare global {
   interface Window {
     boneStudio?: {
+      /** Generate MCP client JSON for the current installation, without exposing local tokens. */
+      getMcpConfiguration(): Promise<McpConfiguration>;
+      /** Copy the current installation's MCP client JSON using the native clipboard. */
+      copyMcpConfiguration(): Promise<void>;
       openProject(options: { documentId: string }): Promise<DesktopProjectFile | null>;
       setProjectSession(options: { documentId: string; openToken?: string }): Promise<void>;
       saveProject(options: SaveProjectOptions): Promise<string | null>;

@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "npm run build:mcp && tsc --noEmit && vite build",
-    "build:mcp": "vite build --config vite.mcp.config.ts",
+    "build:mcp": "vite build --config vite.mcp.config.ts && vite build --config vite.mcp-adapter.config.ts",
+    "package:win": "npm run build && electron-builder --config electron-builder.config.cjs --win portable --x64 --publish never",
     "test": "vitest run",
-    "test:bridge": "npm run build:mcp && node scripts/check-mcp.mjs && node scripts/check-session.mjs && node scripts/check-project-dialogs.mjs",
+    "test:package": "node scripts/check-package.mjs",
+    "test:bridge": "npm run build:mcp && node scripts/check-mcp.mjs && node scripts/check-session.mjs && node scripts/check-project-dialogs.mjs && node scripts/check-mcp-configuration.mjs",
     "lint": "eslint .",
     "start": "electron .",
     "mcp": "node electron/mcp.cjs"
@@ -24,6 +26,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electron/asar": "3.4.1",
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^25.5.0",
@@ -31,8 +34,10 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.1.1",
     "electron": "^44.5.1",
+    "electron-builder": "26.15.3",
     "eslint": "^10.0.3",
     "globals": "^17.4.0",
+    "playwright": "1.63.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1",

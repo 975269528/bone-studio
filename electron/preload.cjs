@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('boneStudio', {
+  getMcpConfiguration: () => ipcRenderer.invoke('mcp:configuration'),
+  copyMcpConfiguration: () => ipcRenderer.invoke('mcp:copy'),
   openProject: (options) => ipcRenderer.invoke('project:open', options),
   setProjectSession: (options) => ipcRenderer.invoke('project:session', options),
   saveProject: (options) => ipcRenderer.invoke('project:save', options),

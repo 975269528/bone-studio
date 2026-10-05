@@ -17,5 +17,5 @@
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] }
   },
-  "include": ["src", "vite.config.ts", "vite.mcp.config.ts"]
+  "include": ["src", "vite.config.ts", "vite.mcp.config.ts", "vite.mcp-adapter.config.ts"]
 }

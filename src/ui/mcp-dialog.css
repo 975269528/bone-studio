@@ -1,0 +1,21 @@
+.app-header .project-title { flex: 1; min-width: 0; }
+.app-header .project-title strong { min-width: 0; }
+.app-header .project-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-header .brand, .app-header .header-actions { flex-shrink: 0; }
+.mcp-entry { font-size: 11px; }
+.mcp-dialog { min-width: 0; }
+.mcp-intro, .mcp-note { color: var(--text); line-height: 1.8; overflow-wrap: anywhere; }
+.mcp-intro { margin-bottom: 16px; }
+.mcp-note { color: var(--text-muted); margin-top: 12px; font-size: 11px; }
+.mcp-config-field { display: flex; flex-direction: column; gap: 8px; color: var(--text-muted); }
+.mcp-config-field textarea { width: 100%; min-width: 0; min-height: 180px; max-height: 260px; padding: 12px; resize: vertical; color: var(--text); background: var(--input-bg); border: 1px solid var(--border); border-radius: 5px; font: 11px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; }
+.mcp-heading { margin-top: 16px; color: var(--text-strong); font-size: 12px; }
+.mcp-requirements { margin: 8px 0 12px; padding-left: 22px; line-height: 1.8; color: var(--text); }
+.mcp-requirements li { overflow-wrap: anywhere; }
+.mcp-copy-success, .mcp-loading { display: flex; align-items: center; gap: 7px; line-height: 1.8; }
+.mcp-copy-success { color: var(--success); margin-top: 14px; }
+.mcp-load-error { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.mcp-dialog .error-copy { margin-top: 12px; overflow-wrap: anywhere; }
+@media (max-width: 1150px) {
+  .mcp-entry { padding: 7px 8px; }
+}
