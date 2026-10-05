@@ -7,6 +7,7 @@ module.exports = {
   directories: { output: 'release' },
   files: ['dist/**', 'dist-mcp/**', 'electron/**', 'package.json'],
   win: {
+    icon: 'electron/assets/icon.ico',
     target: [{ target: 'portable', arch: ['x64'] }],
     signExecutable: false,
   },

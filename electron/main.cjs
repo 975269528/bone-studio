@@ -50,6 +50,7 @@ async function createWindow() {
     show: process.env.BONE_STUDIO_HIDDEN !== '1',
     width: 1600, height: 1000, minWidth: 1100, minHeight: 720,
     title: 'BoneStudio · 2D 骨骼动画', backgroundColor: '#12131b', autoHideMenuBar: true,
+    icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
