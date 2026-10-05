@@ -35,6 +35,7 @@ async function captureClipboard(application) {
     } catch (error) { if (!(error instanceof SyntaxError)) throw error; }
     const items = [];
     if (!isTestContent) for (const item of await clipboard.read()) {
+      if (item.types.length === 0) continue;
       const data = {};
       for (const type of item.types) data[type] = await item.getType(type);
       items.push(new ClipboardItem(data));

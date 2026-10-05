@@ -11,6 +11,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { checkPackageContent } from './check-package-content.mjs';
 import { checkPackagedMcpConfiguration, checkCopiedMcpRestart, saveHiddenScreenshot } from './check-packaged-mcp.mjs';
 const executeFile = promisify(execFile);
+const regression = await executeFile(process.execPath, ['--test', path.resolve('scripts/check-packaged-clipboard.mjs')], { windowsHide: true, timeout: 15000 });
+console.log(regression.stdout.trim());
 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'bone-studio-package-test-'));
 const artifacts = path.resolve('output/package-check');
 const executablePath = path.resolve('release/BoneStudio.exe');
