@@ -6,6 +6,7 @@ import { applyCommands, getEditorState, reportError, runCommand, updateEditor, u
 import { displayedTarget } from './pose-edit';
 import { boneKeyframeCommand } from './bone-edit';
 import type { CommitOptions } from './store';
+import { setEditorMode } from './editor-modes';
 
 function usePlayback() {
   const { isPlaying, animationId, project } = useEditor();
@@ -43,14 +44,14 @@ export function recordKeyframe(): void {
 
 function addAnimation() {
   const animation = { id: crypto.randomUUID(), name: `动作 ${getEditorState().project.animations.length + 1}`, duration: 2, fps: 24, loop: true, tracks: [] };
-  try { applyCommands([{ type: 'animation.add', animation }]); updateEditor({ animationId: animation.id, tool: 'select', time: 0, isPlaying: false }); }
+  try { applyCommands([{ type: 'animation.add', animation }]); setEditorMode({ mode: 'animation', animationId: animation.id }); }
   catch (error) { reportError(error); }
 }
 
 function TimelineHeader() {
   const state = useEditor(); const animation = state.project.animations.find(item => item.id === state.animationId);
   return <div className="timeline-header"><div className="toolbar-group"><span className="panel-label"><Diamond size={14} />时间轴</span>
-    <select aria-label="当前动作" value={state.animationId ?? ''} onChange={event => updateEditor({ animationId: event.target.value || null, tool: event.target.value ? 'select' : 'rig', time: 0, isPlaying: false })}>
+    <select aria-label="当前动作" value={state.animationId ?? ''} onChange={event => setEditorMode(event.target.value ? { mode: 'animation', animationId: event.target.value } : { mode: 'rig' })}>
       <option value="">基础姿态</option>{state.project.animations.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
     <button className="icon-button" aria-label="添加动作" onClick={addAnimation}><Plus size={15} /></button></div>
     <div className="transport"><button className="icon-button" aria-label="返回起始帧" onClick={() => updateEditor({ time: 0 })}><SkipBack size={16} /></button>

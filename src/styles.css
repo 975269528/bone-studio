@@ -50,6 +50,25 @@ h2, h3, p { margin: 0; }
 .tree-row span { overflow: hidden; text-overflow: ellipsis; }
 .tree-row.selected { background: #3d3029; color: #ffc698; box-shadow: inset 2px 0 var(--orange); }
 .tree-row.attachment-row { color: #76869c; height: 24px; font-size: 10px; }
+.tree-controls { display: flex; align-items: center; gap: 4px; padding: 0 12px 8px; color: #74849b; font-size: 9px; }
+.tree-controls span { flex: 1; }
+.tree-controls button { padding: 3px; background: transparent; border: 0; }
+.tree-bone-row { display: flex; align-items: center; min-width: 0; height: 28px; }
+.tree-bone-row.selected { background: #3d3029; box-shadow: inset 2px 0 var(--orange); }
+.tree-bone-row.selected .tree-row { color: #ffc698; }
+.tree-bone-row .tree-row { min-width: 0; padding: 5px 9px 5px 3px; }
+.tree-bone-row .tree-row span { flex: 1; text-align: left; }
+.tree-bone-row .tree-row small { flex-shrink: 0; color: #7a998b; font-size: 8px; }
+.tree-toggle { padding: 2px; background: transparent; border: 0; color: #74849b; flex-shrink: 0; }
+.tree-toggle:disabled { visibility: hidden; }
+.tree-toggle svg, .tree-subheading svg { transition: transform .12s; }
+.tree-toggle svg.expanded, .tree-subheading svg.expanded { transform: rotate(90deg); }
+.tree-drop-zone { padding: 7px 10px; margin: 0 12px 8px; border: 1px dashed #3d4b61; border-radius: 4px; color: #8193ac; font-size: 9px; line-height: 1.5; }
+.tree-subheading { width: 100%; background: transparent; border-left: 0; border-right: 0; border-bottom: 0; border-radius: 0; justify-content: flex-start; gap: 6px; }
+.tree-subheading span { margin-left: auto; }
+.drop-active { outline: 1px solid #eca779; outline-offset: -1px; background: #47352a; }
+.asset-card[draggable=true], .tree-row[draggable=true] { cursor: grab; }
+.library-actions button[hidden] { display: none; }
 .tree-subheading { display: flex; align-items: center; justify-content: space-between; padding: 16px 15px 9px; font-size: 9px; letter-spacing: .8px; color: #697991; border-top: 1px solid var(--border); margin-top: 10px; }
 .tree-subheading span { background: #282f3b; padding: 1px 5px; border-radius: 3px; }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: #505965; display: inline-block; }

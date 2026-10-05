@@ -10,6 +10,7 @@ import type { DragTarget, Point } from './canvas-edit';
 import { drawnBone } from './draw-bone';
 import { attachmentWorld } from './attachment-edit';
 import { rigContext } from './rig-edit';
+import { getEditorMode, selectCanvasTool, setEditorMode } from './editor-modes';
 
 interface Drag extends DragTarget { committed: boolean; isBlocked: boolean; start: Point; revision: number }
 interface Drawing { start: Point; end: Point; parentId: string | null }
@@ -33,7 +34,7 @@ function useCanvasRender(canvas: RefObject<HTMLCanvasElement | null>, state: Edi
   useEffect(() => {
     let isCurrent = true;
     const buffer = document.createElement('canvas');
-    const context = state.tool === 'rig' || state.tool === 'draw' ? rigContext(state) : state;
+    const context = canvasContext(state);
     void renderProject({ canvas: buffer, ...context,
       overlays: { bones: state.showBones, ik: state.showBones, grid: false,
         selectedBoneId: state.selection?.kind === 'bone' ? state.selection.id : null,
@@ -49,7 +50,7 @@ function moveDrag(drag: Drag | null, point: Point): void {
   if (!drag || drag.isBlocked || (!drag.committed && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < DRAG_THRESHOLD)) return;
   const state = getEditorState();
   if (state.revision !== drag.revision) { drag.isBlocked = true; updateEditor({ message: '文档已有其他改动，画布拖动已中断。请重新拖动。' }); return; }
-  const result = planCanvasDrag({ context: state, drag, point });
+  const result = planCanvasDrag({ context: canvasContext(state), drag, point });
   if ('message' in result) { drag.isBlocked = true; updateEditor({ message: result.message }); return; }
   try { applyCommands([result.command], { coalesce: drag.committed }); drag.committed = true; drag.revision = getEditorState().revision; if (drag.kind === 'rig-body') drag.origin = point; }
   catch (error) { drag.isBlocked = true; reportError(error); }
@@ -58,6 +59,8 @@ function moveDrag(drag: Drag | null, point: Point): void {
 function useObjectGesture() {
   const drag = useRef<Drag | null>(null); const [drawing, setDrawing] = useState<Drawing | null>(null);
   const drawingRef = useRef<Drawing | null>(null); const [hasFixedParent, setHasFixedParent] = useState(true);
+  const { documentId, animationId, tool } = useEditor();
+  useEffect(() => { drag.current = null; drawingRef.current = null; setDrawing(null); }, [documentId, animationId, tool]);
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
     const state = getEditorState(); if (event.button !== 0 || state.tool === 'pan') return;
     const point = pointerPosition(event); updateEditor({ isPlaying: false });
@@ -66,7 +69,7 @@ function useObjectGesture() {
       const preview = { start: snappedDrawingStart(state, point), end: point, parentId };
       drawingRef.current = preview; setDrawing(preview);
     } else {
-      const target = hitCanvasTarget(state, point, state.tool);
+      const target = hitCanvasTarget(canvasContext(state), point, state.tool);
       drag.current = target ? { ...target, committed: false, isBlocked: false, start: point, revision: state.revision } : null;
       updateEditor({ selection: target ? { kind: target.kind === 'attachment' ? 'attachment' : target.kind === 'ik' ? 'ik' : 'bone', id: target.id } : null });
     }
@@ -137,7 +140,7 @@ export function Canvas() {
       <CanvasGuides state={state} drawing={gesture.drawing} />
     </div>
   </div><div className="canvas-help"><Crosshair size={12} /><span>{toolHelp(state)}</span>
-    {state.tool === 'rig' && <label><input type="checkbox" checked={state.keepImages} onChange={event => updateEditor({ keepImages: event.target.checked })} />保持图片原位</label>}
+    {state.tool === 'rig' && <label title="开启时图片不随骨架调整；切换到动画模式可预览绑定随动"><input type="checkbox" checked={state.keepImages} onChange={event => updateEditor({ keepImages: event.target.checked })} />保持图片原位 · 动画模式预览随动</label>}
     {state.tool === 'draw' && <label><input type="checkbox" checked={gesture.hasFixedParent} onChange={event => gesture.setHasFixedParent(event.target.checked)} />保持父骨骼</label>}
   </div></main>;
 }
@@ -154,9 +157,9 @@ function toolHelp(state: EditorState): string {
 }
 
 function CanvasGuides(props: { state: EditorState; drawing: Drawing | null }) {
-  const { state, drawing } = props; const pose = samplePose(state.tool === 'rig' || state.tool === 'draw' ? rigContext(state) : state);
+  const { state, drawing } = props; const context = canvasContext(state); const pose = samplePose(context);
   const attachment = state.selection?.kind === 'attachment' ? state.project.attachments.find(item => item.id === state.selection?.id) : undefined;
-  const anchor = attachment ? attachmentWorld(state, attachment) : undefined;
+  const anchor = attachment ? attachmentWorld(context, attachment) : undefined;
   return <svg className="canvas-guides" viewBox={`0 0 ${state.project.width} ${state.project.height}`} aria-hidden="true">
     {state.tool === 'rig' && state.showBones && <RigHandles state={state} />}
     {state.tool === 'length' && Object.values(pose.bones).map(bone => <circle key={bone.id} cx={bone.endX} cy={bone.endY} r={8 / state.zoom} className="length-handle" />)}
@@ -167,20 +170,24 @@ function CanvasGuides(props: { state: EditorState; drawing: Drawing | null }) {
 
 function clampZoom(value: number): number { return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)); }
 
+function canvasContext(state: EditorState): EditorState {
+  return getEditorMode(state) === 'rig' ? { ...state, ...rigContext(state) } : state;
+}
+
 function CanvasToolbar() {
   const state = useEditor();
-  const handleToolChange = (tool: CanvasTool) => updateEditor({ tool, isPlaying: false, ...(tool === 'draw' || tool === 'rig' ? { animationId: null, time: 0, showBones: true } : tool === 'length' ? { showBones: true } : {}) });
+  const handleToolChange = (tool: CanvasTool) => selectCanvasTool(tool);
   const handleFit = () => {
     const rect = document.querySelector('.canvas-area')?.getBoundingClientRect();
     if (rect) updateEditor({ zoom: clampZoom(Math.min((rect.width - 48) / state.project.width, (rect.height - 48) / state.project.height)), pan: { x: 0, y: 0 } });
   };
   return <div className="canvas-toolbar"><div className="toolbar-group"><div className="edit-modes" aria-label="工作模式">
-    <button aria-pressed={state.tool === 'rig' || state.tool === 'draw'} title="编辑基础骨架 (E)" onClick={() => handleToolChange('rig')}>骨架 <kbd>E</kbd></button>
-    <button aria-pressed={!!state.animationId} disabled={!state.project.animations.length} onClick={() => updateEditor({ tool: 'select', animationId: state.animationId ?? state.project.animations[0]?.id ?? null, time: 0, isPlaying: false })}>动画</button>
+    <button aria-pressed={getEditorMode(state) === 'rig'} title="编辑基础骨架 · Q 循环切换" onClick={() => setEditorMode({ mode: 'rig' })}>骨架 <kbd>Q</kbd></button>
+    <button aria-pressed={getEditorMode(state) === 'animation'} title="编辑动画 · Q 循环切换" onClick={() => setEditorMode({ mode: 'animation' })}>动画 <kbd>Q</kbd></button>
     </div><select aria-label="画布工具" value={state.tool} onChange={event => handleToolChange(event.target.value as CanvasTool)}>
     {TOOLS.map(tool => <option key={tool.value} value={tool.value}>{tool.label}</option>)}</select>
     <button className={state.showBones ? 'tool active-subtle' : 'tool'} title="切换骨骼和 IK 叠加显示" onClick={() => updateEditor({ showBones: !state.showBones })}><Bone size={15} /><span>{state.showBones ? '骨骼' : '纯画面'}</span></button>
-    {state.animationId && <select aria-label="编辑模式" value={state.animationId} onChange={event => updateEditor({ animationId: event.target.value, time: 0, isPlaying: false, tool: 'select' })}>{state.project.animations.map(animation => <option key={animation.id} value={animation.id}>{animation.name}</option>)}</select>}
+    {state.animationId && <select aria-label="编辑模式" value={state.animationId} onChange={event => setEditorMode({ mode: 'animation', animationId: event.target.value })}>{state.project.animations.map(animation => <option key={animation.id} value={animation.id}>{animation.name}</option>)}</select>}
   </div><div className="toolbar-group zoom-controls"><button className="icon-button" aria-label="缩小画布" onClick={() => updateEditor({ zoom: clampZoom(state.zoom - 0.1) })}><Minus size={14} /></button><span className="zoom-text">{Math.round(state.zoom * 100)}%</span>
     <button className="icon-button" aria-label="放大画布" onClick={() => updateEditor({ zoom: clampZoom(state.zoom + 0.1) })}><Plus size={14} /></button><button className="icon-button" aria-label="适应窗口" onClick={handleFit}><Maximize size={14} /></button></div></div>;
 }

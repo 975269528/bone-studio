@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { SlidersHorizontal, Link2, Crosshair, Bone as BoneIcon, Image, Pencil } from 'lucide-react';
 import type { Attachment, Bone, IKConstraint, Project } from '@/core/types';
 import { DeleteButton, NumberField, TextField } from './controls';
-import { runCommand, useEditor } from './store';
+import { applyCommands, getEditorState, reportError, runCommand, useEditor } from './store';
+import { planAttachmentBinding } from './binding-plan';
 import { displayedBone, displayedTarget, updateBone, updateIK } from './pose-edit';
 import { getIKChains } from './ik-chains';
 import { getBoneEditRules } from './bone-edit';
@@ -36,7 +37,11 @@ function AttachmentProperties(props: { attachment: Attachment; project: Project 
     { key: 'anchorX', label: 'X 锚点', min: 0, max: 1 }, { key: 'anchorY', label: 'Y 锚点', min: 0, max: 1 },
     { key: 'opacity', label: '不透明度', min: 0, max: 1 }] as const;
   return <><div className="object-kind"><Image size={16} />图片部件 / SLOT</div><TextField label="名称" value={attachment.name} onChange={name => update({ name })} />
-    <Section title="图片绑定 · 随骨骼运动" /><BonePicker project={project} label="绑定骨骼" value={attachment.boneId} onChange={boneId => update({ boneId })} />
+    <Section title="图片绑定 · 随骨骼运动" /><BonePicker project={project} label="绑定骨骼" value={attachment.boneId} onChange={boneId => {
+      try { applyCommands(planAttachmentBinding({ context: getEditorState(), attachmentId: attachment.id, boneId })); }
+      catch (error) { reportError(error); }
+    }} />
+    <p className="field-help">{attachment.boneId ? '已绑定。动画模式旋转骨骼，图片随动；骨架模式默认保持图片原位。' : '尚未绑定，骨骼不会带动此图片。选中本部件后添加骨骼可一起绑定。'} 换绑或解绑保持当前画面姿态，统一影响基础姿态与各动作。</p>
     {attachment.boneId && <button className="full-button" onClick={() => updateEditor({ selection: { kind: 'bone', id: attachment.boneId! } })}><Link2 size={12} />查看绑定骨骼</button>}
     <label className="field full"><span>图片素材</span><select value={attachment.assetId} onChange={event => update({ assetId: event.target.value })}>
       {project.assets.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label>
@@ -95,6 +100,6 @@ export function Inspector() {
   const asset = selection?.kind === 'asset' ? project.assets.find(item => item.id === selection.id) : undefined;
   return <aside className="inspector panel"><div className="panel-title"><SlidersHorizontal size={15} /><span>属性</span><button className="icon-button rename-button" aria-label="重命名所选对象" title="重命名所选对象" onClick={() => { const input = document.querySelector<HTMLInputElement>('.property-content [data-name-field]'); input?.focus(); input?.select(); }}><Pencil size={13} /></button><span className="tiny-label">INSPECTOR</span></div><div className="property-content" key={selection ? `${selection.kind}:${selection.id}` : 'project'}>
     {bone ? <BoneProperties bone={bone} project={project} /> : attachment ? <AttachmentProperties attachment={attachment} project={project} /> : constraint ? <IKProperties constraint={constraint} project={project} /> :
-      asset ? <><div className="object-kind"><Image size={16} />素材 / ASSET</div><TextField label="素材名称" value={asset.name} onChange={name => runCommand({ type: 'asset.update', assetId: asset.id, changes: { name } })} /><img className="asset-preview checker" src={asset.dataUrl} alt={asset.name} /><p className="muted">{asset.width} × {asset.height} px</p><p className="field-help">在素材卡片上点击 +，添加到画布并绑定当前选中的骨骼。</p></> : <ProjectProperties project={project} />}
+      asset ? <><div className="object-kind"><Image size={16} />素材 / ASSET</div><TextField label="素材名称" value={asset.name} onChange={name => runCommand({ type: 'asset.update', assetId: asset.id, changes: { name } })} /><img className="asset-preview checker" src={asset.dataUrl} alt={asset.name} /><p className="muted">{asset.width} × {asset.height} px</p><p className="field-help">素材是可重复使用的原图。点击 + 创建画布图片部件；选择素材再“添加骨骼”会创建部件并绑定。也可拖素材到“骨骼树”标签，再放到目标骨骼上。</p></> : <ProjectProperties project={project} />}
   </div></aside>;
 }
