@@ -30,7 +30,7 @@ npm run package:win
 npm run test:package
 ```
 
-产物输出到 `release/`；`package:win` 先构建界面与 MCP 校验模块，再生成 x64 便携版，不发布到网络。包内仅含 `dist/`、`dist-mcp/`、`electron/`、必要元数据和生产依赖，开发依赖、源码、个人参考图与导出文件不会进入应用包。`test:package` 启动真实 EXE，使用全新临时数据目录和隐藏窗口，检查本地界面、批量导入、保存/打开、MCP、预览与两种 ZIP 导出；截图保留在 `output/package-check/`。测试不会使用正在编辑的窗口或其连接信息。
+产物输出到 `release/`；`package:win` 先构建界面与 MCP 校验模块，再生成 x64 便携版，不发布到网络。包内仅含 `dist/`、`dist-mcp/`、`electron/`、必要元数据和生产依赖，开发依赖、源码、个人参考图与导出文件不会进入应用包。`test:package` 检查 EXE 图标，并启动真实 EXE，使用全新临时数据目录和隐藏窗口，检查快捷键、时间轴曲线、时长拖动、启动恢复、批量导入、保存/打开、MCP、预览与两种 ZIP 导出；截图保留在 `output/playwright/` 和 `output/package-check/`。测试不会使用正在编辑的窗口或其连接信息；其中旧版 MCP 配置复制验收会临时操作系统剪贴板，因此建议在独立测试环境或 GitHub Actions 中运行完整命令。
 
 `start-bone-studio.cmd` 仍用于有开发依赖的源码构建版本；普通使用优先双击便携 EXE。
 
@@ -45,6 +45,16 @@ npm run test:package
 Release 标签使用 `v<应用版本>-build.<运行序号>.<重试次数>`，准确关联本次构建提交；即使应用版本未变或重新运行，也不会覆盖旧 Release。上传和附件大小校验在草稿中完成，成功后才公开并标为 Latest；失败时运行明确报错，可能留下供排查的草稿。Release 说明包含源码提交、构建记录和 EXE 的 SHA-256。[最新 EXE 下载地址](https://github.com/975269528/bone-studio/releases/latest/download/BoneStudio.exe) 保持固定。许可证尚待项目所有者选定。
 
 ## 使用流程
+
+首次启动显示空白骨架，顶部“新建”可创建空白项目或加载示例人物。桌面版会记住最近成功打开、保存的项目，下次启动恢复该文件的已保存内容；文件丢失、损坏或读取超时时提示原因并回到空白，不会恢复未保存修改。“打开”优先定位到上次成功保存的文件；没有保存记录时使用最近打开的文件，路径失效则使用系统默认位置。
+
+时间轴关键帧可单击选择、Ctrl / Cmd 增减选择、Shift 选择范围，通过工具栏或 Ctrl / Cmd+C、V 复制粘贴。粘贴以当前播放头为起点，保留多帧的相对时间与缓动；“倒序粘贴关键帧”同时反转时间顺序和各段缓动。整批操作支持一次撤销，Del 删除选中的关键帧。拖动时间轴末端可整体调整动作时长，骨骼和 IK 目标关键帧同步按比例伸缩。多个动作共用有目标帧的 IK 时，请先在属性“适用动作”中将其关联到当前动作，再调整时长，避免改变其他动作。
+
+点击关键帧后，在时间轴“曲线”视图中直接调整它到下一帧的缓动，无需弹窗。可选择线性、平滑、阶梯或贝塞尔，使用预设、可拖动控制点、数值输入及曲线复制／粘贴／反转；骨骼的位置与旋转、IK 目标的位置均使用同一段缓动，实时预览和导出共用采样逻辑。最后一帧没有下一段，请选择前一帧调整前面的缓动。PNG 序列按时长与 FPS 导出，例如 2 秒、24 FPS 为 48 张 PNG；“图集”可将所有帧合并到一张图片中。
+
+时间轴提供“自动 K 帧”开关，默认关闭。在动画模式中，关闭时调整骨骼或 IK 目标只预览当前姿态，选择对象后按 K 或点击“记录关键帧”才写入当前时间；开启后每次调整自动创建或更新该时刻的关键帧。未录姿态不保存、不导出，切换时间、动作或开始播放时会清除并提示；骨架模式仍修改基础骨架。开关为当前会话设置，不写入项目文件；输入文字时 K 保留输入用途。
+
+MCP `render_preview` 在当前动作、当前时间包含待录姿态，与画布一致；采样其他时间、`get_project`、保存和导出使用已录入的项目内容。AI 显式发送的关键帧命令直接写入项目，不受“自动 K”开关影响。
 
 1. 默认示例是一名紫头巾小厨师，使用 15 个透明 SVG 分件。紫头巾、白衣、紫围裙与棕鞋沿用参考人物的风格，约 2.35 头身，轻微朝左的 3/4 侧身，近远侧手脚非镜像；后续默认人物继续沿用这一侧身视角。躯干与左右髋从腰部同一骨盆中心分叉，两条腿链首尾相连；挥手只驱动近侧手臂，身体与双脚固定。新角色可导入 PNG / WebP / JPEG 部件；透明拆图推荐 PNG。左侧“素材”保存可复用原图，点击 + 才创建画布图片部件。选择左侧图片部件，再点“添加骨骼”，默认“创建并绑定”：新骨起点放在图片锚点，已有图片保留位置、旋转、缩放、透明度与层级，创建和绑定一次撤销；选择素材后添加骨骼则新建图片部件并绑定。取消绑定勾选可只建骨。属性中可换绑骨骼，换绑或解绑保持当前显示姿态；部件局部变换统一用于基础姿态与所有动作，其他时间的运动会随新骨改变。
 2. 按 Q 在骨架和动画模式之间循环，恢复上次动作与时间并暂停播放。无动作时保持骨架模式，先在时间轴添加动作。也可点击顶部模式按钮或选择时间轴动作。切换“骨架”模式，选择“绘制骨骼”工具，在基础姿态中拖出骨骼。已选骨骼作为父骨，空白选择创建根骨；勾选“保持父骨骼”可连续绘制同级分支，取消后新骨成为下一段的父骨。Esc 取消本次绘制。“双端 / 整骨编辑”工具可分别拖圆形起点、菱形终点或整个骨身：连接在同一关节上的骨骼一起调整，未拖动的远端固定，因此骨长与角度可以同时改变。默认“保持图片原位”补偿部件的基础世界位置与旋转；关闭后图片随骨骼变化。该模式显示并编辑基础骨架，不写动画关键帧；已有动画会受到基础骨架变化影响。
@@ -125,7 +135,7 @@ Del 直接删除，无需确认：在画布或骨骼树选中骨骼、图片部�
 | `attachment.update` / `attachment.remove` | `attachmentId`；update 还需 `changes` | changes 为除 id 外的附件字段 |
 | `animation.add` | `animation`：id,name,duration,fps,loop,tracks | — |
 | `animation.update` / `animation.remove` | `animationId`；update 还需 `changes` | changes 为除 id 外的动画字段 |
-| `keyframe.set` | `animationId,boneId,keyframe:{time,x,y,rotation}` | `interpolation`: linear / smooth / step |
+| `keyframe.set` | `animationId,boneId,keyframe:{time,x,y,rotation}` | 轨道默认 `interpolation`: linear / smooth / step / step-start / bezier |
 | `keyframe.remove` | `animationId,boneId,time` | — |
 | `ik.add` | `constraint`：id,name,rootBoneId,tipBoneId,targetX,targetY,bendDirection,enabled,targetKeys | `animationId` |
 | `ik.update` / `ik.remove` | `constraintId`；update 还需 `changes` | changes 为除 id 外的 IK 字段 |
@@ -133,6 +143,8 @@ Del 直接删除，无需确认：在画布或骨骼树选中骨骼、图片部�
 | `ik.keyframe.remove` | `constraintId,time` | — |
 
 rotation 使用角度。bone.parentId 与 attachment.boneId 可为 null；scaleX/scaleY 为倍率；anchorX/anchorY 为 0–1；opacity 为 0–1；bendDirection 为 1 或 -1。动画 tracks 为 `{boneId,keyframes,interpolation}` 数组，IK targetKeys 为 `{time,x,y}` 数组。批量指令最终状态统一校验，失败时不会部分更新。
+
+骨骼与 IK 关键帧可增加 `interpolation`（linear / smooth / step / step-start / bezier）与 `curve: {x1,y1,x2,y2}`，控制点均为 0–1，描述该关键帧到下一关键帧的缓动。`step` 保持到段末后跳变，`step-start` 在段开始后立即跳变，用于正确反转阶梯动作。旧骨骼关键帧沿用轨道插值，旧 IK 关键帧默认为线性；贝塞尔没有控制点时使用标准 ease。`keyframe.set` / `ik.keyframe.set` 更新同一时刻的姿态时保留未提供的缓动字段；需要完全替换时，可在同一批次先删除该帧再设置。项目仍为 version 1，旧项目可继续打开。
 
 `bone.remove` 删除指定骨骼及其子骨、相关轨道和 IK，保留所有图片素材与部件。受影响部件解除骨骼绑定，将指定动作时间的 FK / IK 世界位置和旋转写入部件，保留缩放、锚点、透明度和图层顺序；未传 `animationId` 或传 null 时使用基础姿态。只删除当前生效 IK 的下骨时，存活根骨的解算姿态也会烘焙到当前动作关键帧或基础旋转，保全仍绑定其上的图片；其他动作保持不变。界面删除传入当前动作与时间，因此图片保留删除前的显示姿态。整个删除事务支持撤销和重做。
 

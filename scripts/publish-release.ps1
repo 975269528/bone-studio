@@ -61,6 +61,12 @@ Windows x64 便携版：下载附件 BoneStudio.exe 后直接双击启动，无�
 
 [下载最新 Windows 便携版]($repositoryUrl/releases/latest/download/BoneStudio.exe)
 "@
+if (Test-Path -LiteralPath 'CHANGELOG.md' -PathType Leaf) {
+    $history = Get-Content -LiteralPath 'CHANGELOG.md' -Raw
+    $versionPattern = [regex]::Escape($packageVersion)
+    $changes = [regex]::Match($history, "(?ms)^## $versionPattern\s*\r?\n(.*?)(?=^## |\z)").Groups[1].Value.Trim()
+    if ($changes) { $releaseNotes = "### 更新内容`n`n$changes`n`n$releaseNotes" }
+}
 Set-Content -LiteralPath $notesPath -Value $releaseNotes -Encoding utf8
 
 Invoke-GitHubCli @('release', 'create', $releaseTag, '--target', $env:GITHUB_SHA, '--draft', '--title', $releaseTitle, '--notes-file', $notesPath)
