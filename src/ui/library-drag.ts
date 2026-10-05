@@ -1,27 +1,10 @@
-import type { DragEvent } from 'react';
 import type { ProjectCommand } from '@/core/types';
 import { imageInstance, planAttachmentBinding } from './binding-plan';
 import type { BindingContext } from './binding-plan';
 import { applyCommands, getEditorState, updateEditor } from './store';
 
+/** An internal drag source; identifiers are validated by the command planner on drop. */
 export interface LibraryItem { kind: 'bone' | 'attachment' | 'asset'; id: string }
-const DRAG_TYPE = 'application/x-bonestudio-library';
-
-/** Start an internal library drag with only an object kind and identifier. */
-export function startLibraryDrag(event: DragEvent, item: LibraryItem): void {
-  event.dataTransfer.setData(DRAG_TYPE, JSON.stringify(item)); event.dataTransfer.effectAllowed = item.kind === 'asset' ? 'copy' : 'move';
-  updateEditor({ isPlaying: false });
-}
-
-/** Recognize internal drags without accepting external text or files as object identifiers. */
-export function isLibraryDrag(event: DragEvent): boolean { return event.dataTransfer.types.includes(DRAG_TYPE); }
-
-function readItem(event: DragEvent): LibraryItem {
-  const item: unknown = JSON.parse(event.dataTransfer.getData(DRAG_TYPE));
-  if (!item || typeof item !== 'object' || !('kind' in item) || !('id' in item) || typeof item.id !== 'string'
-    || (item.kind !== 'bone' && item.kind !== 'attachment' && item.kind !== 'asset')) throw new Error('拖拽对象无效，请重新拖动。');
-  return { kind: item.kind, id: item.id };
-}
 
 /** Plan a legal tree drop; bone changes preserve setup placement and image bindings preserve the displayed pose. */
 export function planLibraryDrop(options: { context: BindingContext; item: LibraryItem; boneId: string | null }): ProjectCommand[] {
@@ -42,8 +25,8 @@ export function planLibraryDrop(options: { context: BindingContext; item: Librar
 }
 
 /** Apply a tree drop as one undoable transaction and reveal the resulting part or bone. */
-export function dropLibraryItem(event: DragEvent, boneId: string | null): void {
-  const item = readItem(event); const commands = planLibraryDrop({ context: getEditorState(), item, boneId });
+export function dropLibraryItem(item: LibraryItem, boneId: string | null): void {
+  const commands = planLibraryDrop({ context: getEditorState(), item, boneId });
   if (!commands.length) return;
   applyCommands(commands);
   const added = commands.find(command => command.type === 'attachment.add');

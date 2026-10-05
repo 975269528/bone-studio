@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { Plus, Play, Pause, SkipBack, Diamond, Repeat2, ChevronDown } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { Plus, Play, Pause, SkipBack, Diamond, Repeat2 } from 'lucide-react';
 import type { Bone } from '@/core/types';
 import { DeleteButton, NumberField, TextField } from './controls';
 import { applyCommands, getEditorState, reportError, runCommand, updateEditor, useEditor } from './store';
@@ -7,6 +8,10 @@ import { displayedTarget } from './pose-edit';
 import { boneKeyframeCommand } from './bone-edit';
 import type { CommitOptions } from './store';
 import { setEditorMode } from './editor-modes';
+import { TimelineRuler } from './TimelineRuler';
+import { TimelineResize } from './TimelineResize';
+import { seekTimeline, TIMELINE_LAYOUT } from './timeline-layout';
+import './timeline-layout.css';
 
 function usePlayback() {
   const { isPlaying, animationId, project } = useEditor();
@@ -74,16 +79,22 @@ function TimelineRow(props: { bone: Bone; duration: number }) {
 
 function TimelineTracks() {
   const state = useEditor(); const animation = state.project.animations.find(item => item.id === state.animationId);
+  const scroll = useRef<HTMLDivElement>(null); const [gutter, setGutter] = useState(0);
+  useLayoutEffect(() => {
+    const element = scroll.current; if (!element) return;
+    const measure = () => setGutter(element.offsetWidth - element.clientWidth);
+    const observer = new ResizeObserver(measure); observer.observe(element); measure(); return () => observer.disconnect();
+  }, [animation?.id]);
   if (!animation) return <div className="timeline-empty"><Diamond size={22} /><span>选择或添加动作，开始记录你的第一个姿态。</span><button onClick={addAnimation}>添加动作</button></div>;
-  const ticks = Array.from({ length: 9 }, (_, index) => animation.duration * index / 8);
-  return <div className="timeline-tracks"><div className="ruler"><span className="ruler-label">骨骼轨道 <ChevronDown size={12} /></span><div>{ticks.map(time => <span key={time} style={{ left: `${time / animation.duration * 100}%` }}>{time.toFixed(2)}</span>)}</div></div>
-    <div className="tracks-scroll"><div className="playhead" style={{ left: `calc(150px + (100% - 174px) * ${state.time / animation.duration})` }}><i /></div>
+  return <div className="timeline-tracks" style={{ '--track-gutter': `${gutter}px` } as CSSProperties}><TimelineRuler duration={animation.duration} fps={animation.fps} time={state.time} />
+    <div className="track-viewport"><div className="tracks-scroll" ref={scroll}>
       {state.project.bones.map(bone => <TimelineRow key={bone.id} bone={bone} duration={animation.duration} />)}
       {state.project.ikConstraints.filter(constraint => !constraint.animationId || constraint.animationId === animation.id).map(constraint => <div className="timeline-row" key={constraint.id}>
         <button className="track-name orange" onClick={() => updateEditor({ selection: { kind: 'ik', id: constraint.id } })}>⊕ {constraint.name}</button><div className="track-line">{constraint.targetKeys.map(keyframe => <button className="key-diamond ik-key" key={keyframe.time}
           style={{ left: `${keyframe.time / animation.duration * 100}%` }} aria-label={`${constraint.name} ${keyframe.time}秒目标帧`} onClick={() => updateEditor({ time: keyframe.time, isPlaying: false, selection: { kind: 'ik', id: constraint.id } })} />)}</div></div>)}
-    </div><div className="scrubber"><span>拖动定位</span><input aria-label="时间轴定位" type="range" min={0} max={animation.duration} step={1 / animation.fps} value={state.time}
-      onChange={event => updateEditor({ time: Number(event.target.value), isPlaying: false })} /></div></div>;
+    </div><div className="playhead" style={{ left: `calc(150px + (100% - 174px - var(--track-gutter)) * ${state.time / animation.duration})` }} /></div>
+    <div className="scrubber"><span><output>{state.time.toFixed(2)} s</output><small>拖动定位</small></span><div className="scrubber-range"><input aria-label="时间轴定位" type="range" min={0} max={animation.duration} step="any" value={state.time}
+      onChange={event => updateEditor({ time: seekTimeline({ ratio: Number(event.target.value) / animation.duration, duration: animation.duration, fps: animation.fps }), isPlaying: false })} /></div></div></div>;
 }
 
 function AnimationSettings() {
@@ -105,6 +116,6 @@ function AnimationSettings() {
 
 /** Playback, seek, inspect and record the current animation's bone and IK tracks. */
 export function Timeline() {
-  usePlayback();
-  return <section className="timeline panel"><TimelineHeader /><div className="timeline-body"><TimelineTracks /><AnimationSettings /></div></section>;
+  usePlayback(); const [height, setHeight] = useState<number>(TIMELINE_LAYOUT.initial);
+  return <section className="timeline panel" style={{ height }}><TimelineResize height={height} onResize={setHeight} /><TimelineHeader /><div className="timeline-body"><TimelineTracks /><AnimationSettings /></div></section>;
 }

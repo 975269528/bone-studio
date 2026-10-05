@@ -1,0 +1,23 @@
+.library .library-scroll.is-tree { overflow: hidden; display: flex; }
+.library .tree-list { min-width: 0; min-height: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.library .tree-controls { flex-shrink: 0; padding: 0 10px 7px; font-size: 9px; }
+.library .tree-drop-zone { flex-shrink: 0; margin: 0 10px 7px; padding: 6px 8px; color: var(--text-muted); border-color: var(--border); }
+.library .tree-groups { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.library .tree-group { min-height: 0; display: flex; flex-direction: column; flex: 0 0 auto; overflow: hidden; }
+.library .tree-group.is-expanded { flex: 1 1 0; min-height: 33px; max-height: calc(33px + var(--group-rows) * 28px); }
+.library .tree-group.is-expanded.is-empty { max-height: 69px; }
+.library .tree-subheading { flex-shrink: 0; height: 33px; margin: 0; padding: 0 11px; justify-content: flex-start; border-top: 1px solid var(--border); background: var(--surface-raised); color: var(--text); font-size: 10px; letter-spacing: 0; }
+.library .tree-subheading span { margin-left: auto; background: var(--surface); color: var(--text-muted); }
+.library .tree-group-list { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.library .tree-group-list .empty-copy { padding: 9px 13px; font-size: 10px; }
+.library [data-library-kind] { cursor: grab; touch-action: none; user-select: none; }
+.library .tree-row { min-width: 0; }
+.library .drop-active { outline-color: var(--accent); background: var(--selected); color: var(--selected-text); }
+.library-drag-ghost { position: fixed; top: 0; left: 0; z-index: 120; pointer-events: none; border: 1px solid var(--accent); background: var(--surface-raised); color: var(--text-strong); padding: 8px 12px; border-radius: 6px; box-shadow: 0 6px 18px var(--shadow-soft); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.is-library-dragging, body.is-library-dragging * { cursor: grabbing !important; user-select: none !important; }
+@media (max-height: 760px) {
+  .library .library-actions { padding: 8px 10px; }
+  .library .library-bottom { padding: 8px 10px; }
+  .library .tree-subheading { height: 28px; }
+  .library .tree-group.is-expanded { min-height: 28px; }
+}
