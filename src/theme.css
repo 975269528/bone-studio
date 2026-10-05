@@ -1,0 +1,99 @@
+:root {
+  color-scheme: dark;
+  --app-bg: #171c24;
+  --surface: #222933;
+  --surface-raised: #2a3340;
+  --header-bg: #272f3a;
+  --input-bg: #1b222c;
+  --button-bg: #303947;
+  --hover-bg: #3b4656;
+  --text: #c7cfdb;
+  --text-strong: #edf0f5;
+  --text-muted: #a1aec0;
+  --text-subtle: #96a4b8;
+  --border: #404c5c;
+  --border-strong: #637188;
+  --accent: #e7a678;
+  --accent-hover: #f4bb92;
+  --accent-text: #edba92;
+  --on-accent: #302218;
+  --selected: #493c34;
+  --selected-text: #ffd2ad;
+  --success: #a0c4b2;
+  --danger: #edaaaa;
+  --danger-bg: #3c2d34;
+  --danger-border: #785058;
+  --danger-solid: #b65f65;
+  --on-danger: #fff3f1;
+  --checker-bg: #252d38;
+  --checker-tile: #303a47;
+  --canvas-bg: #1b222c;
+  --canvas-grid: #3b4657;
+  --canvas-overlay: #232c39ed;
+  --track-grid: #364253;
+  --key-bg: #8ba6c5;
+  --key-border: #c2d3e6;
+  --overlay-fill: #253442;
+  --rig-stroke: #a7d8df;
+  --shadow-soft: #0004;
+  --shadow-raised: #0006;
+  --shadow-modal: #0008;
+  --backdrop: #0d1422a6;
+  --crop-fill: #e7a67824;
+  --scrollbar-thumb: #68768b;
+  --scrollbar-track: #222b38;
+  --panel: var(--surface);
+  --orange: var(--accent);
+}
+:root[data-theme=light] {
+  color-scheme: light;
+  --app-bg: #eee9e2;
+  --surface: #f7f2eb;
+  --surface-raised: #fffbf5;
+  --header-bg: #f9f4ed;
+  --input-bg: #fffcf7;
+  --button-bg: #eee6dc;
+  --hover-bg: #e1d6c9;
+  --text: #51483f;
+  --text-strong: #312a24;
+  --text-muted: #756b60;
+  --text-subtle: #7f7467;
+  --border: #d0c5b8;
+  --border-strong: #aa9783;
+  --accent: #d69a6b;
+  --accent-hover: #e5ad81;
+  --accent-text: #955a30;
+  --on-accent: #302014;
+  --selected: #f2ddc9;
+  --selected-text: #754722;
+  --success: #486d59;
+  --danger: #a74c4c;
+  --danger-bg: #f8e4df;
+  --danger-border: #d6a19a;
+  --danger-solid: #b45e5e;
+  --on-danger: #fff8f4;
+  --checker-bg: #eee8df;
+  --checker-tile: #e1d9ce;
+  --canvas-bg: #e9e3da;
+  --canvas-grid: #d1c7ba;
+  --canvas-overlay: #fcf8f0ed;
+  --track-grid: #e0d6c9;
+  --key-bg: #667f99;
+  --key-border: #455d78;
+  --overlay-fill: #e9f0f2;
+  --rig-stroke: #337880;
+  --shadow-soft: #55412e20;
+  --shadow-raised: #55412e30;
+  --shadow-modal: #55412e45;
+  --backdrop: #554a3e6b;
+  --crop-fill: #b7774224;
+  --scrollbar-thumb: #ac9c88;
+  --scrollbar-track: #eee7dd;
+}
+.theme-toggle { font-size: 10px; padding: 7px 9px; }
+input::placeholder { color: var(--text-subtle); opacity: 1; }
+* { scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track); }
+@media (max-width: 1150px) {
+  .theme-toggle { padding: 7px; }
+  .project-title { min-width: 0; max-width: 145px; }
+}
