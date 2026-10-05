@@ -40,9 +40,9 @@ npm run test:package
 
 提交源码、`package-lock.json` 与构建配置即可；`release/`、开发依赖、输出目录和个人参考图由 `.gitignore` 排除。不要提交真实 `.env` 或包含本地令牌的 `ai-connection.json`。本地打包不代表已经创建或上传 GitHub 仓库。
 
-`.github/workflows/windows-build.yml` 在手动运行、推送 `main` / `master` 和拉取请求时检查、构建 Windows x64 便携 EXE。推送 `main` / `master` 或在这两个分支手动运行时，全部检查和真实 EXE 验收通过后，自动发布 [GitHub Release](https://github.com/975269528/bone-studio/releases)，附件固定为 `BoneStudio.exe`，不再上传 Actions 下载产物。拉取请求和其它分支的手动运行只构建、校验，不发布，也没有仓库写权限。
+`.github/workflows/windows-build.yml` 只在手动运行和拉取请求时检查、构建 Windows x64 便携 EXE；普通推送不会触发构建。对 `main` / `master` 手动运行时，全部检查和真实 EXE 验收通过后会自动发布 [GitHub Release](https://github.com/975269528/bone-studio/releases)，附件固定为 `BoneStudio.exe`。日常发布也可直接上传已验收的本地 `release/BoneStudio.exe`，无需重新构建。拉取请求和其它分支的手动运行只构建、校验，不发布，也没有仓库写权限。
 
-Release 标签使用 `v<应用版本>-build.<运行序号>.<重试次数>`，准确关联本次构建提交；即使应用版本未变或重新运行，也不会覆盖旧 Release。上传和附件大小校验在草稿中完成，成功后才公开并标为 Latest；失败时运行明确报错，可能留下供排查的草稿。Release 说明包含源码提交、构建记录和 EXE 的 SHA-256。[最新 EXE 下载地址](https://github.com/975269528/bone-studio/releases/latest/download/BoneStudio.exe) 保持固定。许可证尚待项目所有者选定。
+手动上传已有 EXE 时可使用 `v<应用版本>`；手动运行构建流程时，标签使用 `v<应用版本>-build.<运行序号>.<重试次数>`，准确关联本次构建提交。相同版本或重跑也不会覆盖旧 Release。上传和附件大小校验在草稿中完成，成功后才公开并标为 Latest；失败时运行明确报错，可能留下供排查的草稿。Release 说明包含源码提交、构建记录和 EXE 的 SHA-256。[最新 EXE 下载地址](https://github.com/975269528/bone-studio/releases/latest/download/BoneStudio.exe) 保持固定。许可证尚待项目所有者选定。
 
 ## 使用流程
 
