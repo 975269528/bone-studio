@@ -1,0 +1,45 @@
+.bone-picker-menu.bone-picker-portal {
+  position: fixed;
+  z-index: 120;
+  top: auto;
+  bottom: auto;
+  right: auto;
+  min-width: 0;
+  margin-top: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.bone-picker-portal .bone-picker-search { flex-shrink: 0; }
+.bone-picker-portal .bone-picker-search input { min-width: 0; }
+.bone-picker-menu.bone-picker-portal [role=listbox] {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.bone-picker-menu.bone-picker-portal [role=option] { flex-shrink: 0; }
+.bone-picker-portal strong, .bone-picker-portal small { max-width: 100%; overflow-wrap: anywhere; }
+.bone-picker-trigger { min-width: 0; }
+.bone-picker-trigger span { min-width: 0; }
+.modal.modal--bounded {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-height: min(90dvh, calc(100dvh - 24px));
+  overflow: hidden;
+}
+.modal--bounded > header { flex-shrink: 0; }
+.modal--bounded .modal-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.modal--bounded .modal-body footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-bottom: 2px;
+  background: var(--surface-raised, #1d2531);
+}
+@media (max-height: 480px) {
+  .modal.modal--bounded { padding: 14px 18px; }
+  .modal--bounded > header { margin-bottom: 12px; }
+}

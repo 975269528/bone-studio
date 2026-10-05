@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import type { ProjectCommand } from '@/core/types';
 import { runCommand, updateEditor } from './store';
 import type { CommitOptions } from './store';
 import { useNumberScrub } from './use-number-scrub';
+import { modalFocusElements, trapModalFocus } from './modal-focus';
+import './popup-layout.css';
 
 export interface FieldProps { label: string; value: number; onChange: (value: number, options?: CommitOptions) => void; min?: number; max?: number; step?: number; disabled?: boolean; isInteger?: boolean }
 
@@ -45,30 +47,35 @@ export function TextField(props: { label: string; value: string; onChange: (valu
 /** Accessible modal with Escape dismissal and focus restored to its trigger. */
 export function Modal(props: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
   const section = useRef<HTMLElement>(null);
+  const modalId = useId();
   const previous = useRef(document.activeElement);
   const close = useRef(props.onClose); close.current = props.onClose;
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) return;
       if (event.key === 'Escape') { event.stopImmediatePropagation(); close.current(); }
-      if (event.key === 'Tab') trapFocus(event, section.current);
+      if (event.key === 'Tab') trapModalFocus(event, section.current);
+    };
+    const handleFocus = () => {
+      if (section.current && !modalFocusElements(section.current).includes(document.activeElement as HTMLElement)) {
+        section.current.querySelector<HTMLElement>('input,select,button')?.focus();
+      }
     };
     document.addEventListener('keydown', listener);
+    document.addEventListener('focusin', handleFocus);
     if (!section.current?.contains(document.activeElement)) section.current?.querySelector<HTMLElement>('input,select,button')?.focus();
-    return () => { document.removeEventListener('keydown', listener); if (previous.current instanceof HTMLElement) previous.current.focus(); };
+    return () => {
+      document.removeEventListener('keydown', listener); document.removeEventListener('focusin', handleFocus);
+      if (previous.current instanceof HTMLElement) previous.current.focus();
+    };
   }, []);
-  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) props.onClose(); }}>
-    <section ref={section} className={`modal ${props.wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={props.title}>
+  return <div className="modal-backdrop" onPointerDown={event => { if (event.target === event.currentTarget) props.onClose(); }}>
+    <section ref={section} className={`modal modal--bounded ${props.wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={props.title}
+      data-modal-owner={modalId} tabIndex={-1}>
       <header><h2>{props.title}</h2><button className="icon-button" aria-label="关闭弹窗" onClick={props.onClose}><X size={18} /></button></header>
-      {props.children}
+      <div className="modal-body">{props.children}</div>
     </section>
   </div>;
-}
-
-function trapFocus(event: KeyboardEvent, section: HTMLElement | null): void {
-  const elements = Array.from(section?.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex="0"]') ?? []);
-  const first = elements[0]; const last = elements.at(-1);
-  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 }
 
 /** Confirm document deletions using the editor's common deletion dialog. */
